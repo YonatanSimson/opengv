@@ -200,27 +200,47 @@ void testOmnidirectionalCamera() {
   std::vector<int> camCorrespondences;
   Eigen::MatrixXd gt(3, numberPoints);
   
-  generateRandom2D3DCorrespondences(
-      position, rotation, camOffsets, camRotations, numberPoints, 
-      noise, outlierFraction, bearingVectors, points, camCorrespondences, gt);
+  // Generate points with mixed forward/backward bearings for omnidirectional camera
+  bearingVectors_t omniBearings;
+  points_t omniPoints;
   
-  // Flip 50% of bearings to simulate omnidirectional camera
-  bearingVectors_t omniBearings = bearingVectors;
-  for(size_t i = 0; i < omniBearings.size() / 2; i++) {
-    omniBearings[i] = -omniBearings[i];
+  for(size_t i = 0; i < numberPoints; i++) {
+    // Generate random bearing
+    double theta = (rand() / (double)RAND_MAX) * 2.0 * M_PI;
+    double phi = (rand() / (double)RAND_MAX) * M_PI;
+    
+    bearingVector_t bearing;
+    bearing[0] = sin(phi) * cos(theta);
+    bearing[1] = sin(phi) * sin(theta);
+    bearing[2] = cos(phi);
+    bearing.normalize();
+    
+    // For first half, flip to backward-facing
+    if(i < numberPoints / 2) {
+      bearing = -bearing;
+    }
+    
+    omniBearings.push_back(bearing);
+    
+    // Generate corresponding 3D point at random depth
+    double depth = 2.0 + (rand() / (double)RAND_MAX) * 3.0;
+    point_t point = rotation * bearing * depth + position;
+    omniPoints.push_back(point);
   }
   
   cout << "Ground truth position: " << position.transpose() << endl;
   cout << "Number of correspondences: " << numberPoints << endl;
   cout << "Backward-facing bearings: " << (numberPoints / 2) << endl;
   
-  absolute_pose::CentralAbsoluteAdapter adapter(omniBearings, points, rotation);
+  absolute_pose::CentralAbsoluteAdapter adapter(omniBearings, omniPoints, rotation);
   
   vector<TestResult> results;
   results.push_back(evaluateMethod("EPnP", adapter, position, rotation, 
-                                   omniBearings, points, absolute_pose::epnp));
+                                   omniBearings, omniPoints, absolute_pose::epnp));
+  results.push_back(evaluateMethod("GPnP", adapter, position, rotation, 
+                                   omniBearings, omniPoints, absolute_pose::gpnp));
   results.push_back(evaluateMethod("SQPnP", adapter, position, rotation, 
-                                   omniBearings, points, absolute_pose::sqpnp));
+                                   omniBearings, omniPoints, absolute_pose::sqpnp));
   
   printResults(results, numberPoints);
 }
@@ -269,6 +289,8 @@ void testPanoramicCamera() {
   vector<TestResult> results;
   results.push_back(evaluateMethod("EPnP", adapter, position, rotation, 
                                    bearingVectors, points, absolute_pose::epnp));
+  results.push_back(evaluateMethod("GPnP", adapter, position, rotation, 
+                                   bearingVectors, points, absolute_pose::gpnp));
   results.push_back(evaluateMethod("SQPnP", adapter, position, rotation, 
                                    bearingVectors, points, absolute_pose::sqpnp));
   
@@ -299,14 +321,40 @@ void testWithNoise() {
   std::vector<int> camCorrespondences;
   Eigen::MatrixXd gt(3, numberPoints);
   
-  generateRandom2D3DCorrespondences(
-      position, rotation, camOffsets, camRotations, numberPoints, 
-      noise, outlierFraction, bearingVectors, points, camCorrespondences, gt);
+  // Generate points with mixed forward/backward bearings for omnidirectional camera
+  bearingVectors_t omniBearings;
+  points_t omniPoints;
   
-  // Flip 50% of bearings
-  bearingVectors_t omniBearings = bearingVectors;
-  for(size_t i = 0; i < omniBearings.size() / 2; i++) {
-    omniBearings[i] = -omniBearings[i];
+  for(size_t i = 0; i < numberPoints; i++) {
+    // Generate random bearing
+    double theta = (rand() / (double)RAND_MAX) * 2.0 * M_PI;
+    double phi = (rand() / (double)RAND_MAX) * M_PI;
+    
+    bearingVector_t bearing;
+    bearing[0] = sin(phi) * cos(theta);
+    bearing[1] = sin(phi) * sin(theta);
+    bearing[2] = cos(phi);
+    bearing.normalize();
+    
+    // Add noise to bearing if specified
+    if(noise > 0.0) {
+      bearing[0] += noise * (rand() / (double)RAND_MAX - 0.5);
+      bearing[1] += noise * (rand() / (double)RAND_MAX - 0.5);
+      bearing[2] += noise * (rand() / (double)RAND_MAX - 0.5);
+      bearing.normalize();
+    }
+    
+    // For first half, flip to backward-facing
+    if(i < numberPoints / 2) {
+      bearing = -bearing;
+    }
+    
+    omniBearings.push_back(bearing);
+    
+    // Generate corresponding 3D point at random depth
+    double depth = 2.0 + (rand() / (double)RAND_MAX) * 3.0;
+    point_t point = rotation * bearing * depth + position;
+    omniPoints.push_back(point);
   }
   
   cout << "Ground truth position: " << position.transpose() << endl;
@@ -314,13 +362,15 @@ void testWithNoise() {
   cout << "Noise level: " << (noise * 100) << "%" << endl;
   cout << "Backward-facing bearings: " << (numberPoints / 2) << endl;
   
-  absolute_pose::CentralAbsoluteAdapter adapter(omniBearings, points, rotation);
+  absolute_pose::CentralAbsoluteAdapter adapter(omniBearings, omniPoints, rotation);
   
   vector<TestResult> results;
   results.push_back(evaluateMethod("EPnP", adapter, position, rotation, 
-                                   omniBearings, points, absolute_pose::epnp));
+                                   omniBearings, omniPoints, absolute_pose::epnp));
+  results.push_back(evaluateMethod("GPnP", adapter, position, rotation, 
+                                   omniBearings, omniPoints, absolute_pose::gpnp));
   results.push_back(evaluateMethod("SQPnP", adapter, position, rotation, 
-                                   omniBearings, points, absolute_pose::sqpnp));
+                                   omniBearings, omniPoints, absolute_pose::sqpnp));
   
   printResults(results, numberPoints);
 }

@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -rdynamic -Wl,--dependency-file=CMakeFiles/test_sqpnp_comparison.dir/link.d CMakeFiles/test_sqpnp_comparison.dir/test/test_sqpnp_comparison.cpp.o -o bin/test_sqpnp_comparison  lib/libopengv.a lib/librandom_generators.a lib/libopengv.a

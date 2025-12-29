@@ -1,0 +1,1 @@
+/usr/bin/c++ -O3 -DNDEBUG -rdynamic -Wl,--dependency-file=CMakeFiles/test_relative_pose_rotationOnly.dir/link.d CMakeFiles/test_relative_pose_rotationOnly.dir/test/test_relative_pose_rotationOnly.cpp.o -o bin/test_relative_pose_rotationOnly  lib/libopengv.a lib/librandom_generators.a lib/libopengv.a
