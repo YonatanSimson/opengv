@@ -317,6 +317,12 @@ IF (BUILD_TESTS)
     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
     COMMAND test_sqpnp)
 
+  add_executable( test_sqpnp_comparison test/test_sqpnp_comparison.cpp )
+  target_link_libraries( test_sqpnp_comparison opengv random_generators )
+  add_test(NAME test_sqpnp_comparison
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+    COMMAND test_sqpnp_comparison)
+
   set_target_properties(
     test_absolute_pose
     test_absolute_pose_sac
@@ -337,6 +343,7 @@ IF (BUILD_TESTS)
     test_point_cloud_sac
     test_Sturm
     test_sqpnp
+    test_sqpnp_comparison
 
     PROPERTIES
     CXX_STANDARD 11

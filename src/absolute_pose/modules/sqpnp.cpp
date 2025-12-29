@@ -80,17 +80,52 @@ opengv::absolute_pose::modules::Sqpnp::initialize_pose(
     rotation_t & R,
     translation_t & t)
 {
-  // Compute centroids
+  // Use centroid-based initialization with better heuristics
   point_t worldCentroid = point_t::Zero();
   for(size_t i = 0; i < worldPoints.size(); i++)
     worldCentroid += worldPoints[i];
   worldCentroid /= worldPoints.size();
 
-  // Initial rotation: identity
-  R = rotation_t::Identity();
+  // Estimate camera-frame centroid from bearings
+  bearingVector_t bearingCentroid = bearingVector_t::Zero();
+  for(size_t i = 0; i < bearings.size(); i++)
+    bearingCentroid += bearings[i];
+  bearingCentroid.normalize();
 
-  // Initial translation: negative centroid (simple heuristic)
-  t = -worldCentroid;
+  // Compute initial rotation using Procrustes alignment
+  // Build covariance matrix
+  Eigen::Matrix3d H = Eigen::Matrix3d::Zero();
+  for(size_t i = 0; i < worldPoints.size(); i++) {
+    point_t pw = worldPoints[i] - worldCentroid;
+    bearingVector_t b = bearings[i];
+    H += b * pw.transpose();
+  }
+
+  // SVD for optimal rotation
+  Eigen::JacobiSVD<Eigen::Matrix3d> svd(H, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  R = svd.matrixU() * svd.matrixV().transpose();
+
+  // Ensure proper rotation (det = +1)
+  if(R.determinant() < 0) {
+    Eigen::Matrix3d V = svd.matrixV();
+    V.col(2) *= -1;
+    R = svd.matrixU() * V.transpose();
+  }
+
+  // Estimate translation using least squares
+  // For each point: bearing_i * depth_i = R^T * (point_i - t)
+  // Solving for t
+  Eigen::MatrixXd A(worldPoints.size(), 3);
+  Eigen::VectorXd b(worldPoints.size());
+  
+  for(size_t i = 0; i < worldPoints.size(); i++) {
+    A.row(i) = bearings[i].transpose();
+    b(i) = bearings[i].dot(R.transpose() * worldPoints[i]);
+  }
+  
+  // Solve least squares: A * (R^T * t) = b
+  Eigen::Vector3d Rt_t = A.colPivHouseholderQr().solve(b);
+  t = R * Rt_t;
 }
 
 void

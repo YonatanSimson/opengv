@@ -3,3 +3,17 @@ build
 *.mexa64
 *.pyc
 .vscode
+
+# Python packaging
+dist/
+*.egg-info/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+.Python
+*.whl
+
+# PyPI configuration (contains secrets)
+.pypirc
