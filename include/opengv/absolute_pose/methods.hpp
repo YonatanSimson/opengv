@@ -316,6 +316,33 @@ transformation_t optimize_nonlinear(
     const AbsoluteAdapterBase & adapter,
     const std::vector<int> & indices );
 
+/**
+ * \brief Compute the pose using SQPnP (Sequential Quadratic Programming PnP)
+ *        with null-space refinement. Suitable for omnidirectional and panoramic
+ *        cameras. Uses angular consistency validation instead of cheirality checks.
+ *        Using all available correspondences.
+ *
+ * \param[in] adapter Visitor holding bearing vector to world point correspondences.
+ * \return Pose of viewpoint (position seen from world frame and orientation
+ *         from viewpoint to world frame, transforms points from viewpoint to
+ *         world frame).
+ */
+transformation_t sqpnp( const AbsoluteAdapterBase & adapter );
+
+/**
+ * \brief Compute the pose using SQPnP with a subset of correspondences.
+ *
+ * \param[in] adapter Visitor holding bearing vector to world point correspondences.
+ * \param[in] indices Indices of the n correspondences that are used for
+ *                    deriving the pose.
+ * \return Pose of viewpoint (position seen from world frame and orientation
+ *         from viewpoint to world frame, transforms points from viewpoint to
+ *         world frame).
+ */
+transformation_t sqpnp(
+    const AbsoluteAdapterBase & adapter,
+    const std::vector<int> & indices );
+
 }
 }
 

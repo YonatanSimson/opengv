@@ -37,6 +37,7 @@
 
 #include <opengv/absolute_pose/modules/main.hpp>
 #include <opengv/absolute_pose/modules/Epnp.hpp>
+#include <opengv/absolute_pose/modules/sqpnp.hpp>
 #include <opengv/OptimizationFunctor.hpp>
 #include <opengv/math/cayley.hpp>
 #include <opengv/math/quaternion.hpp>
@@ -807,4 +808,52 @@ opengv::absolute_pose::optimize_nonlinear(
 {
   Indices idx(indices);
   return optimize_nonlinear(adapter,idx);
+}
+
+namespace opengv
+{
+namespace absolute_pose
+{
+
+transformation_t sqpnp(
+    const AbsoluteAdapterBase & adapter,
+    const Indices & indices )
+{
+  modules::Sqpnp solver;
+  
+  for(size_t i = 0; i < indices.size(); i++)
+  {
+    point_t worldPoint = adapter.getPoint(indices[i]);
+    bearingVector_t bearing = adapter.getBearingVector(indices[i]);
+    solver.add_correspondence(worldPoint, bearing);
+  }
+  
+  rotation_t R;
+  translation_t t;
+  solver.compute_pose(R, t);
+  
+  transformation_t transformation;
+  transformation.block<3,3>(0,0) = R;
+  transformation.col(3) = t;
+  
+  return transformation;
+}
+
+}
+}
+
+opengv::transformation_t
+opengv::absolute_pose::sqpnp( const AbsoluteAdapterBase & adapter )
+{
+  Indices idx(adapter.getNumberCorrespondences());
+  return sqpnp(adapter,idx);
+}
+
+opengv::transformation_t
+opengv::absolute_pose::sqpnp(
+    const AbsoluteAdapterBase & adapter,
+    const std::vector<int> & indices )
+{
+  Indices idx(indices);
+  return sqpnp(adapter,idx);
 }

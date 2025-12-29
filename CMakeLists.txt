@@ -102,6 +102,9 @@ set( OPENGV_SOURCE_FILES
   src/math/Sturm.cpp
   src/math/roots.cpp
   src/math/gauss_jordan.cpp
+  src/math/nullspace.cpp
+  src/math/angular.cpp
+  src/absolute_pose/modules/sqpnp.cpp
   src/absolute_pose/methods.cpp
   src/absolute_pose/CentralAbsoluteAdapter.cpp
   src/absolute_pose/NoncentralAbsoluteAdapter.cpp
@@ -308,6 +311,12 @@ IF (BUILD_TESTS)
     WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
     COMMAND test_Sturm)
 
+  add_executable( test_sqpnp test/test_sqpnp.cpp )
+  target_link_libraries( test_sqpnp opengv random_generators )
+  add_test(NAME test_sqpnp
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+    COMMAND test_sqpnp)
+
   set_target_properties(
     test_absolute_pose
     test_absolute_pose_sac
@@ -327,6 +336,7 @@ IF (BUILD_TESTS)
     test_point_cloud
     test_point_cloud_sac
     test_Sturm
+    test_sqpnp
 
     PROPERTIES
     CXX_STANDARD 11
