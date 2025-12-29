@@ -311,6 +311,7 @@ opengv::absolute_pose::modules::Sqpnp::angular_error(
     const double t[3])
 {
   double sum_angular_error = 0.0;
+  const double epsilon = 1e-10; // Small threshold to avoid division by zero
 
   for(int i = 0; i < number_of_correspondences; i++)
   {
@@ -322,8 +323,16 @@ opengv::absolute_pose::modules::Sqpnp::angular_error(
     double Yc = dot(R[1], pw) + t[1];
     double Zc = dot(R[2], pw) + t[2];
     
+    // Compute norm squared to check for degenerate case
+    double norm_sq = Xc * Xc + Yc * Yc + Zc * Zc;
+    if (norm_sq < epsilon * epsilon)
+    {
+      // Degenerate case: point at camera center, skip this correspondence
+      continue;
+    }
+    
     // Normalize to get estimated bearing vector
-    double norm = sqrt(Xc * Xc + Yc * Yc + Zc * Zc);
+    double norm = sqrt(norm_sq);
     double b_est_x = Xc / norm;
     double b_est_y = Yc / norm;
     double b_est_z = Zc / norm;
@@ -334,7 +343,8 @@ opengv::absolute_pose::modules::Sqpnp::angular_error(
     double b_obs_x = u;
     double b_obs_y = v;
     double b_obs_z = 1.0;
-    double obs_norm = sqrt(u * u + v * v + 1.0);
+    double obs_norm_sq = u * u + v * v + 1.0;
+    double obs_norm = sqrt(obs_norm_sq);
     b_obs_x /= obs_norm;
     b_obs_y /= obs_norm;
     b_obs_z /= obs_norm;
@@ -737,7 +747,7 @@ opengv::absolute_pose::modules::Sqpnp::qr_solve(
     if (eta == 0)
     {
       A1[k] = A2[k] = 0.0;
-      cerr << "God damnit, A is singular, this shouldn't happen." << endl;
+      cerr << "Warning: Matrix A is singular. Numerical instability detected." << endl;
       return;
     }
     else
