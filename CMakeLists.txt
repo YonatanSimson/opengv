@@ -64,6 +64,7 @@ set( OPENGV_SOURCE_FILES
   src/absolute_pose/modules/gp3p/reductors.cpp
   src/absolute_pose/modules/gp3p/spolynomials.cpp
   src/absolute_pose/modules/Epnp.cpp
+  src/absolute_pose/modules/Sqpnp.cpp
   src/absolute_pose/modules/gpnp1/code.cpp
   src/absolute_pose/modules/gpnp1/init.cpp
   src/absolute_pose/modules/gpnp1/reductors.cpp
