@@ -311,7 +311,6 @@ opengv::absolute_pose::modules::Sqpnp::angular_error(
     const double t[3])
 {
   double sum_angular_error = 0.0;
-  const double epsilon = 1e-10; // Small threshold to avoid division by zero
 
   for(int i = 0; i < number_of_correspondences; i++)
   {
@@ -325,7 +324,7 @@ opengv::absolute_pose::modules::Sqpnp::angular_error(
     
     // Compute norm squared to check for degenerate case
     double norm_sq = Xc * Xc + Yc * Yc + Zc * Zc;
-    if (norm_sq < epsilon * epsilon)
+    if (norm_sq < EPSILON_ZERO_NORM * EPSILON_ZERO_NORM)
     {
       // Degenerate case: point at camera center, skip this correspondence
       continue;
