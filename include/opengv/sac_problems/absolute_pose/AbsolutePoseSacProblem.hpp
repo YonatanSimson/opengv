@@ -81,7 +81,8 @@ public:
     KNEIP = 1,     // central     [1]
     GAO = 2,       // central     [2]
     EPNP = 3,      // central     [4]
-    GP3P = 4       // non-central [3]
+    GP3P = 4,      // non-central [3]
+    SQPNP = 5      // central, omnidirectional-friendly
   } algorithm_t;
 
   /**

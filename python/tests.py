@@ -230,8 +230,207 @@ def test_triangulation():
     print("Done testing triangulation")
 
 
+# =============================================================================
+# ABSOLUTE POSE TESTS
+# =============================================================================
+
+class AbsolutePoseDataset:
+    """Dataset for absolute pose estimation tests."""
+    
+    def __init__(self, num_points, noise, outlier_fraction):
+        # Generate random camera pose
+        self.position = generateRandomTranslation(2.0)
+        self.rotation = generateRandomRotation(0.5)
+        
+        # Generate correspondences
+        self.generateCorrespondences(num_points, noise, outlier_fraction)
+    
+    def generateCorrespondences(self, num_points, noise, outlier_fraction):
+        min_depth = 4.0
+        max_depth = 8.0
+        
+        # Generate random 3D points in world frame
+        self.points = np.empty((num_points, 3))
+        for i in range(num_points):
+            self.points[i] = generateRandomPoint(max_depth, min_depth)
+        
+        # Project points to bearing vectors
+        self.bearing_vectors = np.empty((num_points, 3))
+        for i in range(num_points):
+            # Transform point to camera frame
+            body_point = self.rotation.T.dot(self.points[i] - self.position)
+            
+            # Normalize to get bearing vector
+            self.bearing_vectors[i] = normalized(body_point)
+            
+            # Add noise
+            if noise > 0.0:
+                self.bearing_vectors[i] = addNoise(noise, self.bearing_vectors[i])
+        
+        # Add outliers (replace first N correspondences with random ones)
+        num_outliers = int(outlier_fraction * num_points)
+        for i in range(num_outliers):
+            # Random bearing vector (not corresponding to actual point)
+            random_dir = np.random.uniform(-1.0, 1.0, 3)
+            self.bearing_vectors[i] = normalized(random_dir)
+
+
+def transformation_close(position, rotation, transformation, pos_tol=0.1, rot_tol=0.1):
+    """Check if transformation is close to ground truth."""
+    R = transformation[:, :3]
+    t = transformation[:, 3]
+    
+    pos_error = np.linalg.norm(t - position)
+    
+    # Rotation error using Rodrigues vector norm
+    R_rel = R.T.dot(rotation)
+    # Convert to angle-axis and get angle
+    trace = np.trace(R_rel)
+    trace = np.clip(trace, -1.0, 3.0)  # Numerical stability
+    angle = np.arccos((trace - 1.0) / 2.0)
+    
+    return pos_error < pos_tol and angle < rot_tol
+
+
+def test_absolute_pose():
+    """Test absolute pose solvers: p3p_kneip, p3p_gao, epnp, sqpnp"""
+    print("Testing absolute pose")
+    
+    d = AbsolutePoseDataset(20, 0.0, 0.0)
+    
+    # Test P3P Kneip (returns list of transformations)
+    p3p_kneip_results = pyopengv.absolute_pose_p3p_kneip(
+        d.bearing_vectors, d.points)
+    found_kneip = False
+    for T in p3p_kneip_results:
+        if transformation_close(d.position, d.rotation, T):
+            found_kneip = True
+            break
+    assert found_kneip, "P3P Kneip failed to find correct pose"
+    
+    # Test P3P Gao (returns list of transformations)
+    p3p_gao_results = pyopengv.absolute_pose_p3p_gao(
+        d.bearing_vectors, d.points)
+    found_gao = False
+    for T in p3p_gao_results:
+        if transformation_close(d.position, d.rotation, T):
+            found_gao = True
+            break
+    assert found_gao, "P3P Gao failed to find correct pose"
+    
+    # Test EPNP (returns single transformation)
+    epnp_result = pyopengv.absolute_pose_epnp(d.bearing_vectors, d.points)
+    assert transformation_close(d.position, d.rotation, epnp_result), \
+        "EPNP failed to find correct pose"
+    
+    # Test SQPNP (returns single transformation)
+    sqpnp_result = pyopengv.absolute_pose_sqpnp(d.bearing_vectors, d.points)
+    assert transformation_close(d.position, d.rotation, sqpnp_result), \
+        "SQPNP failed to find correct pose"
+    
+    print("Done testing absolute pose")
+
+
+def test_absolute_pose_ransac():
+    """Test absolute pose RANSAC with different algorithms."""
+    print("Testing absolute pose RANSAC")
+    
+    # Dataset with 30% outliers
+    d = AbsolutePoseDataset(100, 0.0, 0.3)
+    
+    threshold = 1.0 - np.cos(np.arctan(np.sqrt(2.0) * 0.5 / 800.0))
+    
+    # Test RANSAC with KNEIP (P3P)
+    ransac_kneip = pyopengv.absolute_pose_ransac(
+        d.bearing_vectors, d.points, "KNEIP", threshold, 1000)
+    assert transformation_close(d.position, d.rotation, ransac_kneip, 0.2, 0.2), \
+        "RANSAC KNEIP failed"
+    print("  RANSAC KNEIP: OK")
+    
+    # Test RANSAC with EPNP
+    ransac_epnp = pyopengv.absolute_pose_ransac(
+        d.bearing_vectors, d.points, "EPNP", threshold, 1000)
+    assert transformation_close(d.position, d.rotation, ransac_epnp, 0.2, 0.2), \
+        "RANSAC EPNP failed"
+    print("  RANSAC EPNP: OK")
+    
+    # Test RANSAC with SQPNP
+    ransac_sqpnp = pyopengv.absolute_pose_ransac(
+        d.bearing_vectors, d.points, "SQPNP", threshold, 1000)
+    assert transformation_close(d.position, d.rotation, ransac_sqpnp, 0.2, 0.2), \
+        "RANSAC SQPNP failed"
+    print("  RANSAC SQPNP: OK")
+    
+    print("Done testing absolute pose RANSAC")
+
+
+def test_absolute_pose_lmeds():
+    """Test absolute pose LMedS with SQPNP."""
+    print("Testing absolute pose LMedS")
+    
+    # Dataset with 30% outliers
+    d = AbsolutePoseDataset(100, 0.0, 0.3)
+    
+    threshold = 1.0 - np.cos(np.arctan(np.sqrt(2.0) * 0.5 / 800.0))
+    
+    # Test LMedS with KNEIP
+    lmeds_kneip = pyopengv.absolute_pose_lmeds(
+        d.bearing_vectors, d.points, "KNEIP", threshold, 1000)
+    assert transformation_close(d.position, d.rotation, lmeds_kneip, 0.2, 0.2), \
+        "LMedS KNEIP failed"
+    print("  LMedS KNEIP: OK")
+    
+    # Test LMedS with SQPNP
+    lmeds_sqpnp = pyopengv.absolute_pose_lmeds(
+        d.bearing_vectors, d.points, "SQPNP", threshold, 1000)
+    assert transformation_close(d.position, d.rotation, lmeds_sqpnp, 0.2, 0.2), \
+        "LMedS SQPNP failed"
+    print("  LMedS SQPNP: OK")
+    
+    print("Done testing absolute pose LMedS")
+
+
+def test_absolute_pose_comparison():
+    """Compare accuracy of different absolute pose methods."""
+    print("Testing absolute pose accuracy comparison")
+    
+    # Clean data for accuracy comparison
+    d = AbsolutePoseDataset(50, 0.0, 0.0)
+    
+    # Get results from each method
+    epnp_result = pyopengv.absolute_pose_epnp(d.bearing_vectors, d.points)
+    sqpnp_result = pyopengv.absolute_pose_sqpnp(d.bearing_vectors, d.points)
+    
+    # Calculate errors
+    def calc_errors(T, position, rotation):
+        pos_error = np.linalg.norm(T[:, 3] - position)
+        R_rel = T[:, :3].T.dot(rotation)
+        trace = np.clip(np.trace(R_rel), -1.0, 3.0)
+        rot_error = np.arccos((trace - 1.0) / 2.0)
+        return pos_error, rot_error
+    
+    epnp_pos_err, epnp_rot_err = calc_errors(epnp_result, d.position, d.rotation)
+    sqpnp_pos_err, sqpnp_rot_err = calc_errors(sqpnp_result, d.position, d.rotation)
+    
+    print(f"  EPNP:  pos_err={epnp_pos_err:.2e}, rot_err={np.degrees(epnp_rot_err):.4f}°")
+    print(f"  SQPNP: pos_err={sqpnp_pos_err:.2e}, rot_err={np.degrees(sqpnp_rot_err):.4f}°")
+    
+    # Both should achieve very low error with clean data
+    assert epnp_pos_err < 1e-6, "EPNP position error too large"
+    assert sqpnp_pos_err < 1e-6, "SQPNP position error too large"
+    
+    print("Done testing absolute pose accuracy comparison")
+
+
 if __name__ == "__main__":
+    # Relative pose tests
     test_relative_pose()
     test_relative_pose_ransac()
     test_relative_pose_ransac_rotation_only()
     test_triangulation()
+    
+    # Absolute pose tests
+    test_absolute_pose()
+    test_absolute_pose_ransac()
+    test_absolute_pose_lmeds()
+    test_absolute_pose_comparison()

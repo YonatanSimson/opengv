@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1.3)
+cmake_minimum_required(VERSION 3.5)
 project(opengv VERSION 1.0 LANGUAGES CXX)
 
 # Set the build type.  Options are:
@@ -182,7 +182,7 @@ add_library( random_generators test/random_generators.cpp test/random_generators
 set_target_properties( opengv random_generators PROPERTIES
                     SOVERSION ${PROJECT_VERSION}
                     VERSION ${PROJECT_VERSION}
-                    CXX_STANDARD 11
+                    CXX_STANDARD 14
                     CXX_STANDARD_REQUIRED ON
                     DEBUG_POSTFIX d )
 
@@ -212,6 +212,18 @@ IF (BUILD_TESTS)
   add_test(NAME test_sqpnp_omnidirectional
     WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
     COMMAND test_sqpnp_omnidirectional)
+
+  add_executable( test_panorama_sqpnp test/test_panorama_sqpnp.cpp )
+  target_link_libraries( test_panorama_sqpnp opengv random_generators )
+  add_test(NAME test_panorama_sqpnp
+    WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
+    COMMAND test_panorama_sqpnp)
+
+  add_executable( test_panorama_sqpnp_vs_epnp test/test_panorama_sqpnp_vs_epnp.cpp )
+  target_link_libraries( test_panorama_sqpnp_vs_epnp opengv random_generators )
+  add_test(NAME test_panorama_sqpnp_vs_epnp
+    WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
+    COMMAND test_panorama_sqpnp_vs_epnp)
 
   add_executable( test_absolute_pose_sac test/test_absolute_pose_sac.cpp )
   target_link_libraries( test_absolute_pose_sac opengv random_generators )
@@ -334,9 +346,12 @@ IF (BUILD_TESTS)
     test_point_cloud
     test_point_cloud_sac
     test_Sturm
+    test_sqpnp_omnidirectional
+    test_panorama_sqpnp
+    test_panorama_sqpnp_vs_epnp
 
     PROPERTIES
-    CXX_STANDARD 11
+    CXX_STANDARD 14
     CXX_STANDARD_REQUIRED ON
     DEBUG_POSTFIX d )
 

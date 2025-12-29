@@ -113,6 +113,22 @@ opengv::sac_problems::
     solutions = opengv::absolute_pose::gp3p(_adapter,indices);
     break;
   }
+  case SQPNP:
+  {
+    transformation_t solution = opengv::absolute_pose::sqpnp(_adapter,indices);
+
+    //transform solution into body frame (case of single shifted cam)
+    translation_t t_bc = _adapter.getCamOffset(indices[0]);
+    rotation_t R_bc = _adapter.getCamRotation(indices[0]);
+
+    translation_t translation = solution.col(3);
+    rotation_t rotation = solution.block<3,3>(0,0);
+    solution.col(3) = translation - rotation * R_bc.transpose() * t_bc;
+    solution.block<3,3>(0,0) = rotation * R_bc.transpose();
+
+    solutions.push_back(solution);
+    break;
+  }
   }
   
   if( solutions.size() == 1 )
@@ -205,9 +221,20 @@ opengv::sac_problems::
     const model_t & model,
     model_t & optimized_model)
 {
-  _adapter.sett(model.col(3));
-  _adapter.setR(model.block<3,3>(0,0));
-  optimized_model = opengv::absolute_pose::optimize_nonlinear(_adapter,inliers);
+  if(_algorithm == SQPNP)
+  {
+    // For SQPNP, use SQPNP refinement which properly handles
+    // omnidirectional/panorama bearing vectors
+    optimized_model = opengv::absolute_pose::sqpnp(_adapter, inliers);
+  }
+  else
+  {
+    // For other algorithms, use standard nonlinear optimization
+    // (Levenberg-Marquardt with reprojection error)
+    _adapter.sett(model.col(3));
+    _adapter.setR(model.block<3,3>(0,0));
+    optimized_model = opengv::absolute_pose::optimize_nonlinear(_adapter,inliers);
+  }
 }
 
 int
@@ -219,5 +246,7 @@ opengv::sac_problems::
     sampleSize = 2;
   if(_algorithm == EPNP)
     sampleSize = 6;
+  if(_algorithm == SQPNP)
+    sampleSize = 6;  // SQPNP needs at least 6 points for stable solution
   return sampleSize;
 }

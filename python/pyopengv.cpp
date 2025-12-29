@@ -229,6 +229,13 @@ py::object epnp( pyarray_d &v, pyarray_d &p )
     opengv::absolute_pose::epnp(adapter));
 }
 
+py::object sqpnp( pyarray_d &v, pyarray_d &p )
+{
+  CentralAbsoluteAdapter adapter(v, p);
+  return arrayFromTransformation(
+    opengv::absolute_pose::sqpnp(adapter));
+}
+
 py::object gpnp( pyarray_d &v, pyarray_d &p )
 {
   CentralAbsoluteAdapter adapter(v, p);
@@ -272,6 +279,7 @@ py::object ransac(
   else if (algo_name == "GAO") algorithm = AbsolutePoseSacProblem::GAO;
   else if (algo_name == "EPNP") algorithm = AbsolutePoseSacProblem::EPNP;
   else if (algo_name == "GP3P") algorithm = AbsolutePoseSacProblem::GP3P;
+  else if (algo_name == "SQPNP") algorithm = AbsolutePoseSacProblem::SQPNP;
 
   std::shared_ptr<AbsolutePoseSacProblem>
       absposeproblem_ptr(
@@ -309,12 +317,13 @@ py::object lmeds(
   else if (algo_name == "GAO") algorithm = AbsolutePoseSacProblem::GAO;
   else if (algo_name == "EPNP") algorithm = AbsolutePoseSacProblem::EPNP;
   else if (algo_name == "GP3P") algorithm = AbsolutePoseSacProblem::GP3P;
+  else if (algo_name == "SQPNP") algorithm = AbsolutePoseSacProblem::SQPNP;
 
   std::shared_ptr<AbsolutePoseSacProblem>
       absposeproblem_ptr(
         new AbsolutePoseSacProblem(adapter, algorithm));
 
-  // Create a ransac solver for the problem
+  // Create a lmeds solver for the problem
   opengv::sac::Lmeds<AbsolutePoseSacProblem> lmeds;
 
   lmeds.sac_model_ = absposeproblem_ptr;
@@ -673,6 +682,7 @@ PYBIND11_MODULE(pyopengv, m) {
   m.def("absolute_pose_p3p_gao", pyopengv::absolute_pose::p3p_gao);
   m.def("absolute_pose_gp3p", pyopengv::absolute_pose::gp3p);
   m.def("absolute_pose_epnp", pyopengv::absolute_pose::epnp);
+  m.def("absolute_pose_sqpnp", pyopengv::absolute_pose::sqpnp);
   m.def("absolute_pose_gpnp", pyopengv::absolute_pose::gpnp);
   m.def("absolute_pose_upnp", pyopengv::absolute_pose::upnp);
   m.def("absolute_pose_optimize_nonlinear", pyopengv::absolute_pose::optimize_nonlinear);

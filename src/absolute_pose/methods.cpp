@@ -29,6 +29,7 @@
  ******************************************************************************/
 
 
+#include <cassert>
 #include <opengv/absolute_pose/methods.hpp>
 #include <opengv/Indices.hpp>
 

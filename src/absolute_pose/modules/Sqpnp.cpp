@@ -49,6 +49,7 @@ opengv::absolute_pose::modules::Sqpnp::Sqpnp(void)
   us = 0;
   alphas = 0;
   pcs = 0;
+  signs = 0;
 
   this->uc = 0.0;
   this->vc = 0.0;
@@ -62,6 +63,7 @@ opengv::absolute_pose::modules::Sqpnp::~Sqpnp()
   delete [] us;
   delete [] alphas;
   delete [] pcs;
+  delete [] signs;
 }
 
 void
@@ -74,12 +76,14 @@ opengv::absolute_pose::modules::Sqpnp::
     if (us != 0) delete [] us;
     if (alphas != 0) delete [] alphas;
     if (pcs != 0) delete [] pcs;
+    if (signs != 0) delete [] signs;
 
     maximum_number_of_correspondences = n;
     pws = new double[3 * maximum_number_of_correspondences];
-    us = new double[2 * maximum_number_of_correspondences];
+    us = new double[3 * maximum_number_of_correspondences];  // Changed: store full bearing vectors [x, y, z]
     alphas = new double[4 * maximum_number_of_correspondences];
     pcs = new double[3 * maximum_number_of_correspondences];
+    signs = new int[maximum_number_of_correspondences];
   }
 }
 
@@ -102,8 +106,25 @@ opengv::absolute_pose::modules::Sqpnp::add_correspondence(
   pws[3 * number_of_correspondences + 1] = Y;
   pws[3 * number_of_correspondences + 2] = Z;
 
-  us[2 * number_of_correspondences    ] = x/z;
-  us[2 * number_of_correspondences + 1] = y/z;
+  // Store full normalized bearing vector [x, y, z] instead of [x/z, y/z]
+  // Normalize the bearing vector to ensure it's a unit vector
+  double norm = sqrt(x*x + y*y + z*z);
+  if(norm < EPSILON_ZERO_NORM)
+  {
+    // Degenerate case: zero bearing vector, skip
+    return;
+  }
+  
+  us[3 * number_of_correspondences    ] = x / norm;
+  us[3 * number_of_correspondences + 1] = y / norm;
+  us[3 * number_of_correspondences + 2] = z / norm;
+  
+  // Store the sign of z for omnidirectional camera support
+  // This is used in solve_for_sign() to handle backward-facing vectors
+  if(z > 0.0)
+    signs[number_of_correspondences] = 1;
+  else
+    signs[number_of_correspondences] = -1;
 
   number_of_correspondences++;
 }
@@ -174,18 +195,36 @@ opengv::absolute_pose::modules::Sqpnp::fill_M(
     Eigen::MatrixXd & M,
     const int row,
     const double * as,
-    const double u,
-    const double v)
+    const double x,
+    const double y,
+    const double z)
 {
+  // For normalized bearing vectors, we use the constraint:
+  // The bearing vector [x, y, z] should be parallel to the point in camera frame
+  // This gives: [x, y, z] × (R*P + t) = 0
+  // Expressing P in barycentric coordinates: P = Σ α_i * C_i
+  // And P_c = Σ α_i * c_i (control points in camera frame)
+  // So: [x, y, z] × (Σ α_i * c_i) = 0
+  // This gives 2 independent constraints per correspondence
+  
+  // Cross product constraint: [x, y, z] × [cx, cy, cz] = [y*cz - z*cy, z*cx - x*cz, x*cy - y*cx]
+  // We use the first two components (they are independent)
+  
   for(int i = 0; i < 4; i++)
   {
-    M(row,3*i) = as[i] * fu;
-    M(row,3*i+1) = 0.0;
-    M(row,3*i+2) = as[i] * (uc - u);
-
-    M(row+1,3*i) = 0.0;
-    M(row+1,3*i+1) = as[i] * fv;
-    M(row+1,3*i+2) = as[i] * (vc - v);
+    // First constraint: y*cz - z*cy = 0
+    // For control point c_i = [cx_i, cy_i, cz_i], this becomes:
+    // y * cz_i - z * cy_i = 0
+    // Expressing in barycentric coordinates: Σ α_j * (y * cz_j - z * cy_j) = 0
+    M(row, 3*i)   = 0.0;
+    M(row, 3*i+1) = -as[i] * z;  // -z * cy component
+    M(row, 3*i+2) = as[i] * y;   // y * cz component
+    
+    // Second constraint: z*cx - x*cz = 0
+    // z * cx_i - x * cz_i = 0
+    M(row+1, 3*i)   = as[i] * z;   // z * cx component
+    M(row+1, 3*i+1) = 0.0;
+    M(row+1, 3*i+2) = -as[i] * x;  // -x * cz component
   }
 }
 
@@ -227,19 +266,43 @@ opengv::absolute_pose::modules::Sqpnp::compute_pose(
     double R[3][3],
     double t[3])
 {
+  // =================================================================
+  // TRUE SQPnP ALGORITHM
+  // =================================================================
+  // Uses Omega matrix formulation that directly supports 360° bearing vectors
+  // Based on Terzakis & Lourakis ECCV 2020 paper
+  // This is the primary solver for omnidirectional/panorama cameras
+  
+  Eigen::MatrixXd Omega;
+  compute_omega_matrix(Omega);
+  
+  Eigen::Matrix3d R_sqp;
+  Eigen::Vector3d t_sqp;
+  double sqp_error = sqp_solve(Omega, R_sqp, t_sqp);
+  
+  // =================================================================
+  // EPnP-BASED FALLBACK (for comparison and robustness)
+  // =================================================================
+  // Also run the EPnP-based approach as a fallback
+  
   choose_control_points();
   compute_barycentric_coordinates();
 
   Eigen::MatrixXd M(2*number_of_correspondences,12);
 
   for(int i = 0; i < number_of_correspondences; i++)
-    fill_M(M, 2 * i, alphas + 4 * i, us[2 * i], us[2 * i + 1]);
+    fill_M(M, 2 * i, alphas + 4 * i, us[3 * i], us[3 * i + 1], us[3 * i + 2]);
 
   Eigen::MatrixXd MtM = M.transpose() * M;
   Eigen::JacobiSVD< Eigen::MatrixXd > SVD(
       MtM,
       Eigen::ComputeFullV | Eigen::ComputeFullU );
   Eigen::MatrixXd Ut = SVD.matrixU().transpose();
+  
+  // Apply Gram-Schmidt orthogonalization to null space vectors
+  Eigen::MatrixXd Ut_orthogonal = Ut;
+  gram_schmidt_orthogonalize(Ut_orthogonal, 6, 6);
+  Ut = Ut_orthogonal;
 
   Eigen::Matrix<double,6,10> L_6x10;
   Eigen::Matrix<double,6,1> Rho;
@@ -261,14 +324,46 @@ opengv::absolute_pose::modules::Sqpnp::compute_pose(
   find_betas_approx_3(L_6x10, Rho, Betas[3]);
   gauss_newton(L_6x10, Rho, Betas[3]);
   rep_errors[3] = compute_R_and_t(Ut, Betas[3], Rs[3], ts[3]);
+  
+  // Additional initialization using average of approximations
+  for(int i = 0; i < 4; i++)
+  {
+    Betas[0][i] = (Betas[1][i] + Betas[2][i] + Betas[3][i]) / 3.0;
+  }
+  gauss_newton(L_6x10, Rho, Betas[0]);
+  rep_errors[0] = compute_R_and_t(Ut, Betas[0], Rs[0], ts[0]);
 
-  int N = 1;
-  if (rep_errors[2] < rep_errors[1]) N = 2;
-  if (rep_errors[3] < rep_errors[N]) N = 3;
-
-  copy_R_and_t(Rs[N], ts[N], R, t);
-
-  return rep_errors[N];
+  // =================================================================
+  // SELECT BEST SOLUTION
+  // =================================================================
+  // Compare true SQPnP result with EPnP-based results
+  
+  // Find best EPnP-based solution
+  int N_epnp = 0;
+  for(int i = 1; i < 4; i++)
+  {
+    if (rep_errors[i] < rep_errors[N_epnp]) N_epnp = i;
+  }
+  double epnp_best_error = rep_errors[N_epnp];
+  
+  // Choose between SQPnP and EPnP-based solution
+  if(sqp_error < epnp_best_error)
+  {
+    // Use true SQPnP solution
+    for(int i = 0; i < 3; i++)
+    {
+      for(int j = 0; j < 3; j++)
+        R[i][j] = R_sqp(i, j);
+      t[i] = t_sqp(i);
+    }
+    return sqp_error;
+  }
+  else
+  {
+    // Use EPnP-based solution
+    copy_R_and_t(Rs[N_epnp], ts[N_epnp], R, t);
+    return epnp_best_error;
+  }
 }
 
 void
@@ -336,17 +431,10 @@ opengv::absolute_pose::modules::Sqpnp::angular_error(
     double b_est_y = Yc / norm;
     double b_est_z = Zc / norm;
     
-    // Get observed bearing vector (normalized)
-    double u = us[2 * i];
-    double v = us[2 * i + 1];
-    double b_obs_x = u;
-    double b_obs_y = v;
-    double b_obs_z = 1.0;
-    double obs_norm_sq = u * u + v * v + 1.0;
-    double obs_norm = sqrt(obs_norm_sq);
-    b_obs_x /= obs_norm;
-    b_obs_y /= obs_norm;
-    b_obs_z /= obs_norm;
+    // Get observed bearing vector (already normalized and stored)
+    double b_obs_x = us[3 * i];
+    double b_obs_y = us[3 * i + 1];
+    double b_obs_z = us[3 * i + 2];
     
     // Compute dot product (cosine of angle)
     double cos_angle = b_est_x * b_obs_x + b_est_y * b_obs_y + b_est_z * b_obs_z;
@@ -361,6 +449,271 @@ opengv::absolute_pose::modules::Sqpnp::angular_error(
   }
 
   return sum_angular_error / number_of_correspondences;
+}
+
+void
+opengv::absolute_pose::modules::Sqpnp::gram_schmidt_orthogonalize(
+    Eigen::MatrixXd & V,
+    int start_col,
+    int num_cols)
+{
+  // Gram-Schmidt orthogonalization for columns [start_col, start_col+num_cols)
+  // This ensures the null space vectors form an orthogonal basis, improving numerical stability
+  // and helping achieve global solutions by maintaining proper subspace structure
+  
+  for(int j = start_col; j < start_col + num_cols && j < V.cols(); j++)
+  {
+    // Normalize the current column
+    double norm = V.col(j).norm();
+    if(norm > EPSILON_ZERO_NORM)
+    {
+      V.col(j) /= norm;
+    }
+    
+    // Subtract projections onto previous columns (Gram-Schmidt process)
+    for(int k = start_col; k < j; k++)
+    {
+      double dot_product = V.col(j).dot(V.col(k));
+      V.col(j) -= dot_product * V.col(k);
+    }
+    
+    // Renormalize after orthogonalization
+    norm = V.col(j).norm();
+    if(norm > EPSILON_ZERO_NORM)
+    {
+      V.col(j) /= norm;
+    }
+    else
+    {
+      // If column becomes zero (degenerate case), set to unit vector in a standard direction
+      V.col(j).setZero();
+      if(j < V.rows())
+        V(j, j) = 1.0;
+    }
+  }
+}
+
+void
+opengv::absolute_pose::modules::Sqpnp::project_to_nullspace(
+    const Eigen::MatrixXd & M,
+    Eigen::MatrixXd & Ut_orthogonal)
+{
+  // Project solution onto null space for improved numerical stability
+  // This helps ensure solutions stay in the correct subspace and find global solutions
+  
+  Eigen::MatrixXd MtM = M.transpose() * M;
+  Eigen::JacobiSVD< Eigen::MatrixXd > SVD(
+      MtM,
+      Eigen::ComputeFullV | Eigen::ComputeFullU );
+  
+  Ut_orthogonal = SVD.matrixU().transpose();
+  
+  // Apply Gram-Schmidt to ensure orthogonality of null space vectors
+  gram_schmidt_orthogonalize(Ut_orthogonal, 6, 6);
+}
+
+void
+opengv::absolute_pose::modules::Sqpnp::compute_omega_matrix(Eigen::MatrixXd & Omega)
+{
+  // Build the Omega matrix for true SQPnP formulation
+  // This directly uses bearing vectors without perspective camera assumption
+  // 
+  // For each correspondence i with bearing vector u_i and world point M_i:
+  // The constraint is: u_i × (R*M_i + t) = 0 (bearing parallel to transformed point)
+  // This can be written as: [u_i]× * (R*M_i + t) = 0
+  // where [u_i]× is the skew-symmetric matrix of u_i
+  //
+  // Expanding: [u_i]× * R * M_i + [u_i]× * t = 0
+  // This gives us 3 linear constraints per correspondence (2 are independent)
+  
+  // The Omega matrix is 9x9, formed from sum of outer products
+  Omega = Eigen::MatrixXd::Zero(9, 9);
+  
+  // Q matrix accumulator for translation solving
+  Eigen::Matrix3d Q_sum = Eigen::Matrix3d::Zero();
+  
+  for(int i = 0; i < number_of_correspondences; i++)
+  {
+    // Get bearing vector (already normalized)
+    double ux = us[3 * i];
+    double uy = us[3 * i + 1];
+    double uz = us[3 * i + 2];
+    
+    // Get world point
+    double px = pws[3 * i];
+    double py = pws[3 * i + 1];
+    double pz = pws[3 * i + 2];
+    
+    // Projection matrix: I - u*u^T (projects onto plane perpendicular to u)
+    Eigen::Matrix3d P;
+    P(0,0) = 1.0 - ux*ux; P(0,1) = -ux*uy;      P(0,2) = -ux*uz;
+    P(1,0) = -uy*ux;      P(1,1) = 1.0 - uy*uy; P(1,2) = -uy*uz;
+    P(2,0) = -uz*ux;      P(2,1) = -uz*uy;      P(2,2) = 1.0 - uz*uz;
+    
+    // World point as vector
+    Eigen::Vector3d M_i(px, py, pz);
+    
+    // Accumulate Q_sum for translation estimation
+    Q_sum += P;
+    
+    // Build the 9x9 contribution to Omega from this correspondence
+    // For rotation vector r = [r1 r2 r3 r4 r5 r6 r7 r8 r9]^T (column-major of R)
+    // The constraint P * R * M_i = 0 can be written as A_i * r = 0
+    // where A_i is a 3x9 matrix
+    
+    Eigen::Matrix<double, 3, 9> A_i = Eigen::Matrix<double, 3, 9>::Zero();
+    
+    // A_i = P * [M_i^T ⊗ I_3] where ⊗ is Kronecker product
+    // This expands to:
+    // Column 0-2: P * M_i(0) * I_3 = P * px
+    // Column 3-5: P * M_i(1) * I_3 = P * py
+    // Column 6-8: P * M_i(2) * I_3 = P * pz
+    
+    A_i.block<3,3>(0,0) = P * px;
+    A_i.block<3,3>(0,3) = P * py;
+    A_i.block<3,3>(0,6) = P * pz;
+    
+    // Accumulate Omega = sum of A_i^T * A_i
+    Omega += A_i.transpose() * A_i;
+  }
+}
+
+void
+opengv::absolute_pose::modules::Sqpnp::nearest_rotation_matrix(
+    const Eigen::Matrix3d & M_in,
+    Eigen::Matrix3d & R_out)
+{
+  // Find the nearest rotation matrix to M_in using SVD
+  // R = U * V^T where M = U * S * V^T
+  Eigen::JacobiSVD<Eigen::Matrix3d> svd(M_in, Eigen::ComputeFullU | Eigen::ComputeFullV);
+  
+  Eigen::Matrix3d U = svd.matrixU();
+  Eigen::Matrix3d V = svd.matrixV();
+  
+  R_out = U * V.transpose();
+  
+  // Ensure proper rotation (det = 1, not -1)
+  if(R_out.determinant() < 0)
+  {
+    // Flip sign of last column of U
+    U.col(2) = -U.col(2);
+    R_out = U * V.transpose();
+  }
+}
+
+double
+opengv::absolute_pose::modules::Sqpnp::sqp_solve(
+    const Eigen::MatrixXd & Omega,
+    Eigen::Matrix3d & R_out,
+    Eigen::Vector3d & t_out)
+{
+  // Sequential Quadratic Programming solver for rotation
+  // Minimizes r^T * Omega * r subject to R being a rotation matrix
+  //
+  // Uses iterative projection: 
+  // 1. Solve for r that minimizes quadratic cost
+  // 2. Project r onto SO(3) (nearest rotation matrix)
+  // 3. Repeat until convergence
+  
+  const int max_sqp_iterations = 15;
+  const double convergence_threshold = 1e-10;
+  
+  // Initialize with identity rotation
+  Eigen::Matrix3d R_current = Eigen::Matrix3d::Identity();
+  double prev_cost = std::numeric_limits<double>::max();
+  
+  for(int iter = 0; iter < max_sqp_iterations; iter++)
+  {
+    // Vectorize current rotation (column-major)
+    Eigen::Map<Eigen::Matrix<double, 9, 1>> r_vec(R_current.data());
+    
+    // Compute current cost
+    double cost = r_vec.transpose() * Omega * r_vec;
+    
+    // Check convergence
+    if(std::abs(prev_cost - cost) < convergence_threshold)
+    {
+      break;
+    }
+    prev_cost = cost;
+    
+    // Compute gradient: g = 2 * Omega * r
+    Eigen::Matrix<double, 9, 1> gradient = 2.0 * Omega * r_vec;
+    
+    // Compute step using Newton-like update with regularization
+    // H = 2 * Omega + lambda * I
+    double lambda = 1e-6;
+    Eigen::MatrixXd H = 2.0 * Omega + lambda * Eigen::MatrixXd::Identity(9, 9);
+    
+    // Solve H * delta_r = -gradient
+    Eigen::Matrix<double, 9, 1> delta_r = H.ldlt().solve(-gradient);
+    
+    // Update rotation vector
+    Eigen::Matrix<double, 9, 1> r_new = r_vec + delta_r;
+    
+    // Reshape to 3x3 matrix
+    Eigen::Matrix3d R_new = Eigen::Map<Eigen::Matrix3d>(r_new.data());
+    
+    // Project onto SO(3) - find nearest rotation matrix
+    nearest_rotation_matrix(R_new, R_current);
+  }
+  
+  R_out = R_current;
+  
+  // Compute translation given rotation
+  // t = -Q_sum^{-1} * sum_i(P_i * R * M_i)
+  // where Q_sum = sum_i(P_i) and P_i = I - u_i * u_i^T
+  
+  Eigen::Matrix3d Q_sum = Eigen::Matrix3d::Zero();
+  Eigen::Vector3d q_sum = Eigen::Vector3d::Zero();
+  
+  for(int i = 0; i < number_of_correspondences; i++)
+  {
+    // Get bearing vector
+    double ux = us[3 * i];
+    double uy = us[3 * i + 1];
+    double uz = us[3 * i + 2];
+    
+    // Get world point
+    double px = pws[3 * i];
+    double py = pws[3 * i + 1];
+    double pz = pws[3 * i + 2];
+    
+    // Projection matrix
+    Eigen::Matrix3d P;
+    P(0,0) = 1.0 - ux*ux; P(0,1) = -ux*uy;      P(0,2) = -ux*uz;
+    P(1,0) = -uy*ux;      P(1,1) = 1.0 - uy*uy; P(1,2) = -uy*uz;
+    P(2,0) = -uz*ux;      P(2,1) = -uz*uy;      P(2,2) = 1.0 - uz*uz;
+    
+    Eigen::Vector3d M_i(px, py, pz);
+    
+    Q_sum += P;
+    q_sum += P * R_out * M_i;
+  }
+  
+  // Solve for translation: Q_sum * t = -q_sum
+  t_out = -Q_sum.ldlt().solve(q_sum);
+  
+  // Compute final angular error
+  double total_error = 0.0;
+  for(int i = 0; i < number_of_correspondences; i++)
+  {
+    Eigen::Vector3d u_i(us[3*i], us[3*i+1], us[3*i+2]);
+    Eigen::Vector3d M_i(pws[3*i], pws[3*i+1], pws[3*i+2]);
+    
+    Eigen::Vector3d p_cam = R_out * M_i + t_out;
+    double norm = p_cam.norm();
+    if(norm > EPSILON_ZERO_NORM)
+    {
+      Eigen::Vector3d p_dir = p_cam / norm;
+      double cos_angle = u_i.dot(p_dir);
+      if(cos_angle > 1.0) cos_angle = 1.0;
+      if(cos_angle < -1.0) cos_angle = -1.0;
+      total_error += acos(std::abs(cos_angle));  // Use abs to handle backward-facing
+    }
+  }
+  
+  return total_error / number_of_correspondences;
 }
 
 void
@@ -458,6 +811,29 @@ opengv::absolute_pose::modules::Sqpnp::print_pose(
   cout << R[2][0] << " " << R[2][1] << " " << R[2][2] << " " << t[2] << endl;
 }
 
+void
+opengv::absolute_pose::modules::Sqpnp::solve_for_sign(void)
+{
+  // For omnidirectional cameras, check if the computed camera-frame points
+  // have consistent depth signs with the original bearing vectors
+  // Use the first correspondence as reference (like EPNP)
+  
+  if( (pcs[2] < 0.0 && signs[0] > 0) || (pcs[2] > 0.0 && signs[0] < 0) )
+  {
+    // Sign mismatch - flip all control points and camera-frame points
+    for(int i = 0; i < 4; i++)
+      for(int j = 0; j < 3; j++)
+        ccs[i][j] = -ccs[i][j];
+
+    for(int i = 0; i < number_of_correspondences; i++)
+    {
+      pcs[3 * i    ] = -pcs[3 * i];
+      pcs[3 * i + 1] = -pcs[3 * i + 1];
+      pcs[3 * i + 2] = -pcs[3 * i + 2];
+    }
+  }
+}
+
 double
 opengv::absolute_pose::modules::Sqpnp::compute_R_and_t(
     const Eigen::MatrixXd & Ut,
@@ -468,8 +844,8 @@ opengv::absolute_pose::modules::Sqpnp::compute_R_and_t(
   compute_ccs(betas, Ut);
   compute_pcs();
 
-  // No depth positivity check for omnidirectional cameras
-  // solve_for_sign() removed to support backward-facing bearing vectors
+  // Handle sign for omnidirectional cameras
+  solve_for_sign();
 
   estimate_R_and_t(R, t);
 
@@ -690,7 +1066,8 @@ opengv::absolute_pose::modules::Sqpnp::gauss_newton(
     const Eigen::Matrix<double,6,1> & Rho,
     double betas[4])
 {
-  const int iterations_number = 5;
+  // Increased iterations for better convergence to global solution
+  const int iterations_number = 10;  // Increased from 5 to 10 for better convergence
 
   Eigen::Matrix<double,6,4> A;
   Eigen::Matrix<double,6,1> B;

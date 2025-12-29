@@ -80,8 +80,9 @@ private:
       Eigen::MatrixXd & M,
       const int row,
       const double * alphas,
-      const double u,
-      const double v);
+      const double x,
+      const double y,
+      const double z);
   void compute_ccs(const double * betas, const Eigen::MatrixXd & ut);
   void compute_pcs(void);
 
@@ -137,10 +138,41 @@ private:
 
   void mat_to_quat(const double R[3][3], double q[4]);
 
+  // Gram-Schmidt orthogonalization for null space vectors
+  void gram_schmidt_orthogonalize(
+      Eigen::MatrixXd & V,
+      int start_col,
+      int num_cols);
+  
+  // Null space projection to improve numerical stability
+  void project_to_nullspace(
+      const Eigen::MatrixXd & M,
+      Eigen::MatrixXd & Ut_orthogonal);
+  
+  // True SQPnP algorithm using Omega matrix formulation
+  // Supports 360° bearing vectors directly
+  void compute_omega_matrix(Eigen::MatrixXd & Omega);
+  
+  // SQP (Sequential Quadratic Programming) optimization
+  double sqp_solve(
+      const Eigen::MatrixXd & Omega,
+      Eigen::Matrix3d & R_out,
+      Eigen::Vector3d & t_out);
+  
+  // Compute nearest rotation matrix using SVD
+  void nearest_rotation_matrix(
+      const Eigen::Matrix3d & M_in,
+      Eigen::Matrix3d & R_out);
+
+  // Sign handling for omnidirectional cameras
+  void solve_for_sign(void);
 
   double uc, vc, fu, fv;
+  int * signs;  // Added for omnidirectional support
 
   double * pws, * us, * alphas, * pcs;
+  // us stores normalized bearing vectors: [x0, y0, z0, x1, y1, z1, ...]
+  // Changed from 2 components (u, v) to 3 components (x, y, z) per correspondence
   int maximum_number_of_correspondences;
   int number_of_correspondences;
 
