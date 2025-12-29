@@ -207,6 +207,12 @@ IF (BUILD_TESTS)
     WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
     COMMAND test_absolute_pose)
 
+  add_executable( test_sqpnp_omnidirectional test/test_sqpnp_omnidirectional.cpp )
+  target_link_libraries( test_sqpnp_omnidirectional opengv random_generators )
+  add_test(NAME test_sqpnp_omnidirectional
+    WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
+    COMMAND test_sqpnp_omnidirectional)
+
   add_executable( test_absolute_pose_sac test/test_absolute_pose_sac.cpp )
   target_link_libraries( test_absolute_pose_sac opengv random_generators )
   add_test(NAME test_absolute_pose_sac
