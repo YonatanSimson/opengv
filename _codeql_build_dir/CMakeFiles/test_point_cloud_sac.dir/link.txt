@@ -1,1 +1,0 @@
-/home/runner/work/opengv/.codeql-scratch/dbs/cpp/working/autobuild/bin/c++ -O3 -DNDEBUG -rdynamic -Wl,--dependency-file=CMakeFiles/test_point_cloud_sac.dir/link.d CMakeFiles/test_point_cloud_sac.dir/test/test_point_cloud_sac.cpp.o -o bin/test_point_cloud_sac  lib/libopengv.a lib/librandom_generators.a lib/libopengv.a

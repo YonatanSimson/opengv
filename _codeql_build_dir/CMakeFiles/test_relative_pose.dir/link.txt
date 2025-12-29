@@ -1,1 +1,0 @@
-/home/runner/work/opengv/.codeql-scratch/dbs/cpp/working/autobuild/bin/c++ -O3 -DNDEBUG -rdynamic -Wl,--dependency-file=CMakeFiles/test_relative_pose.dir/link.d CMakeFiles/test_relative_pose.dir/test/test_relative_pose.cpp.o -o bin/test_relative_pose  lib/libopengv.a lib/librandom_generators.a lib/libopengv.a
