@@ -1,0 +1,163 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build-and-test-ubuntu:
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          build-essential \
+          libeigen3-dev \
+          python3-dev \
+          python3-pip \
+          python3-venv
+
+    - name: Configure CMake (C++ only)
+      run: |
+        mkdir -p build
+        cd build
+        cmake .. -DBUILD_TESTS=ON -DBUILD_PYTHON=OFF
+
+    - name: Build C++ library
+      run: |
+        cd build
+        make -j$(nproc)
+
+    - name: Run C++ tests
+      run: |
+        cd build
+        ctest --output-on-failure
+
+    - name: Configure CMake (with Python)
+      run: |
+        cd build
+        cmake .. \
+          -DBUILD_TESTS=ON \
+          -DBUILD_PYTHON=ON \
+          -DPYTHON_EXECUTABLE=$(which python3) \
+          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+
+    - name: Build Python bindings
+      run: |
+        cd build
+        make pyopengv -j$(nproc)
+
+    - name: Test Python module (from build)
+      run: |
+        cd ${{ github.workspace }}
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip install numpy
+        PYTHONPATH=build/lib python3 python/tests.py
+
+  build-wheel-ubuntu:
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake \
+          build-essential \
+          libeigen3-dev \
+          python3-dev \
+          python3-pip \
+          python3-venv
+
+    - name: Create virtual environment
+      run: |
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip install --upgrade pip
+        pip install numpy wheel build
+
+    - name: Build wheel
+      run: |
+        source .venv/bin/activate
+        pip wheel . --no-deps -w dist/
+
+    - name: Install wheel
+      run: |
+        source .venv/bin/activate
+        pip install dist/pyopengv-*.whl
+
+    - name: Test installed wheel
+      run: |
+        source .venv/bin/activate
+        python3 python/tests.py
+
+    - name: Upload wheel artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wheel-ubuntu-22.04
+        path: dist/*.whl
+
+  build-and-test-macos:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-14, macos-latest]  # macos-14 = Sonoma (ARM), macos-latest = latest available
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        brew install cmake eigen
+
+    - name: Configure and build C++
+      run: |
+        mkdir -p build
+        cd build
+        cmake .. -DBUILD_TESTS=ON -DBUILD_PYTHON=OFF
+        make -j$(sysctl -n hw.ncpu)
+
+    - name: Run C++ tests
+      run: |
+        cd build
+        ctest --output-on-failure
+
+    - name: Create virtual environment
+      run: |
+        python3 -m venv .venv
+        source .venv/bin/activate
+        pip install --upgrade pip
+        pip install numpy wheel build
+
+    - name: Build and test wheel
+      run: |
+        source .venv/bin/activate
+        pip wheel . --no-deps -w dist/
+        pip install dist/pyopengv-*.whl
+        python3 python/tests.py
+
+    - name: Upload wheel artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wheel-${{ matrix.os }}
+        path: dist/*.whl
+
