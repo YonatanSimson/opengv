@@ -25,7 +25,7 @@ Install the required dependencies using Homebrew:
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # Install dependencies
-brew install cmake eigen
+brew install cmake eigen pybind11
 ```
 
 ### Building the C++ Library

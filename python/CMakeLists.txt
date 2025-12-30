@@ -1,11 +1,10 @@
 
-add_subdirectory(pybind11)
+find_package(pybind11 REQUIRED)
 
 include_directories(${PYTHON_INCLUDE_DIRS})
 
-
 pybind11_add_module(pyopengv pyopengv.cpp)
-target_link_libraries(pyopengv PRIVATE opengv)
+target_link_libraries(pyopengv PRIVATE opengv pybind11::module)
 
 
 # Find where to install python libs.

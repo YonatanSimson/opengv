@@ -64,8 +64,6 @@ class CMakeBuild(build_ext):
             f"-DPYTHON_EXECUTABLE={sys.executable}",
             "-DBUILD_TESTS=OFF",
             "-DBUILD_PYTHON=ON",
-            # Workaround for old pybind11 submodule CMake version requirement
-            "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
         ]
 
         # Build type
