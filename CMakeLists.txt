@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.5)
 project(opengv VERSION 1.0 LANGUAGES CXX)
 
+# Set C++ standard (required by Eigen 3.x)
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 # Set the build type.  Options are:
 #
 #  None (CMAKE_C_FLAGS or CMAKE_CXX_FLAGS used)

@@ -119,6 +119,7 @@ jobs:
         mkdir -p build
         cd build
         cmake .. \
+          -DCMAKE_CXX_STANDARD=14 \
           -DBUILD_TESTS=ON \
           -DBUILD_PYTHON=ON \
           -DPYTHON_EXECUTABLE=$(which python3)
@@ -171,11 +172,11 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install Eigen (headers-only, via vcpkg)
+    - name: Install Eigen and pybind11 (headers-only, via vcpkg)
       run: |
         git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
         C:\vcpkg\bootstrap-vcpkg.bat
-        C:\vcpkg\vcpkg install eigen3:x64-windows
+        C:\vcpkg\vcpkg install eigen3:x64-windows pybind11:x64-windows
 
     - name: Install Python dependencies
       run: |
