@@ -14,9 +14,11 @@ OpenGV is a collection of computer vision methods for solving geometric vision p
 - **Triangulation**: Multiple methods for 3D point reconstruction
 - **Python Bindings**: Full API access via `pyopengv`
 
-## Installation on macOS
+## Installation
 
-### Prerequisites
+### Installation on macOS
+
+#### Prerequisites
 
 Install the required dependencies using Homebrew:
 
@@ -26,81 +28,198 @@ Install the required dependencies using Homebrew:
 
 # Install dependencies
 brew install cmake eigen pybind11
+
+# For Python bindings, install Python packages
+pip3 install numpy
+```
+
+**Alternative: Using Conda** (optional, not required):
+
+If you prefer using conda instead of Homebrew:
+
+```bash
+conda env create -f environment.yml
+conda activate opengv
+bash scripts/test_conda_env.sh
+```
+
+### Installation on Linux
+
+#### Prerequisites
+
+Install the required dependencies using your package manager:
+
+```bash
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install -y cmake libeigen3-dev python3-dev python3-pip pybind11-dev
+
+# Fedora/RHEL
+sudo dnf install cmake eigen3-devel python3-devel python3-pip pybind11-devel
+
+# For Python bindings
+pip3 install numpy
+```
+
+**Alternative: Using Conda** (optional, not required):
+
+If you prefer using conda:
+
+```bash
+conda env create -f environment.yml
+conda activate opengv
+bash scripts/test_conda_env.sh
+```
+
+### Installation on Windows
+
+#### Recommended: Using Conda
+
+Windows is easiest with Conda, which handles all dependencies:
+
+```powershell
+# Install Miniconda or Anaconda if you haven't already
+# Download from: https://docs.conda.io/en/latest/miniconda.html
+
+# Create a conda environment from the provided environment.yml file
+conda env create -f environment.yml
+
+# Activate the environment
+conda activate opengv
+# If needed: conda init powershell (then restart PowerShell)
+
+# Verify the environment is set up correctly
+python --version
+cmake --version
+
+# Test the conda environment (optional but recommended)
+scripts\test_conda_env.bat
 ```
 
 ### Building the C++ Library
 
+First, clone the repository and initialize submodules (all platforms):
+
 ```bash
-# Clone the repository
 git clone https://github.com/laurentkneip/opengv.git
 cd opengv
-
-# Initialize submodules (for Python bindings)
 git submodule update --init --recursive
+```
 
-# Create build directory
+#### macOS
+
+```bash
 mkdir build && cd build
-
-# Configure with CMake
 cmake ..
-
-# Build
 make -j$(sysctl -n hw.ncpu)
-
-# Run tests
 make test
+```
+
+#### Linux
+
+```bash
+mkdir build && cd build
+cmake ..
+make -j$(nproc)
+make test
+```
+
+#### Windows (PowerShell)
+
+```powershell
+mkdir build
+cd build
+cmake .. -A x64
+cmake --build . --config Release --parallel
+ctest -C Release --output-on-failure --parallel
 ```
 
 ### Building with Python Bindings
 
+If using conda, activate the environment first: `conda activate opengv`
+
+#### macOS
+
 ```bash
-# Configure with Python support
+mkdir build && cd build
 cmake .. -DBUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$(which python3)
-
-# Build
 make -j$(sysctl -n hw.ncpu)
+# Output: build/lib/pyopengv.cpython-*.so
+```
 
-# The Python module will be at: build/lib/pyopengv.cpython-*.so
+#### Linux
+
+```bash
+mkdir build && cd build
+cmake .. -DBUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$(which python3)
+make -j$(nproc)
+# Output: build/lib/pyopengv.cpython-*.so
+```
+
+#### Windows (PowerShell)
+
+```powershell
+conda activate opengv
+mkdir build
+cd build
+cmake .. -DBUILD_PYTHON=ON -A x64 -DPYTHON_EXECUTABLE=$env:CONDA_PREFIX\python.exe
+cmake --build . --config Release --parallel
+# Output: build/lib/Release/pyopengv.pyd
+```
+
+**Note**: If using conda, CMake will auto-detect conda Python. You can also explicitly specify it with:
+```powershell
+cmake .. -DBUILD_PYTHON=ON -A x64 -DPYTHON_EXECUTABLE=$env:CONDA_PREFIX\python.exe
 ```
 
 ### Installing the Python Wheel
 
 The easiest way to install the Python bindings:
 
+#### macOS / Linux
+
 ```bash
-# Create a virtual environment (recommended)
 python3 -m venv .venv
 source .venv/bin/activate
-
-# Install numpy (required)
 pip install numpy
-
-# Build and install the wheel
 pip install .
 ```
 
-Or build a distributable wheel:
+#### Windows (PowerShell)
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install numpy
+pip install .
+```
+
+Or build a distributable wheel (all platforms):
 
 ```bash
 pip install wheel build
 pip wheel . --no-deps -w dist/
-
-# Install the wheel
 pip install dist/pyopengv-*.whl
 ```
 
 ### Verify Installation
 
+#### macOS / Linux
+
 ```bash
-# Test C++ library
 cd build
 ./bin/test_absolute_pose
-
-# Test Python bindings
 python3 -c "import pyopengv; print('pyopengv installed successfully!')"
-
-# Run Python tests
 PYTHONPATH=build/lib python3 python/tests.py
+```
+
+#### Windows (PowerShell)
+
+```powershell
+cd build
+.\bin\Release\test_absolute_pose.exe
+python -c "import pyopengv; print('pyopengv installed successfully!')"
+$env:PYTHONPATH="$PWD\lib\Release"; python ..\python\tests.py
 ```
 
 ## Quick Start (Python)
@@ -159,15 +278,32 @@ print("RANSAC result:\n", result_ransac)
 - `triangulation_triangulate(b1, b2, position, rotation)` - Triangulate points
 - `triangulation_triangulate2(b1, b2, position, rotation)` - Alternative method
 
-## Troubleshooting (macOS)
+## Troubleshooting
 
 ### Eigen not found
+
+**On macOS (Homebrew):**
 ```bash
 # Install Eigen
 brew install eigen
 
 # If CMake still can't find it, specify the path:
 cmake .. -DEIGEN_INCLUDE_DIR=/opt/homebrew/include/eigen3
+```
+
+**On Windows (Conda):**
+```bash
+# Eigen should be available through conda, but if not found:
+conda install eigen
+# Or specify the path manually:
+cmake .. -DEIGEN_INCLUDE_DIR=$CONDA_PREFIX/include/eigen3
+```
+
+**On Linux:**
+```bash
+sudo apt-get install libeigen3-dev
+# Or on Fedora:
+sudo dnf install eigen3-devel
 ```
 
 ### C++14 required error
@@ -179,8 +315,56 @@ cmake .. -DCMAKE_CXX_STANDARD=14
 ### Python module not found
 Ensure you're using the correct Python:
 ```bash
+# On macOS/Linux:
 cmake .. -DBUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$(which python3)
+
+# On Windows (with conda):
+cmake .. -DBUILD_PYTHON=ON -DPYTHON_EXECUTABLE=$CONDA_PREFIX\python.exe
 ```
+
+### PyBind11 not found (Windows)
+If using conda, PyBind11 should be available automatically. If not:
+```bash
+conda install pybind11
+# Or install via pip (less recommended):
+pip install pybind11
+```
+
+### Windows-specific issues
+
+1. **MSVC compiler required**: On Windows, you need Visual Studio with C++ build tools.
+
+   **Option A: Install via Visual Studio (Recommended)**
+   1. Download [Visual Studio 2022 Community](https://visualstudio.microsoft.com/downloads/) (free)
+   2. Run the installer
+   3. Select **"Desktop development with C++"** workload
+   4. Click Install (requires ~6-8 GB)
+   5. Restart your terminal after installation
+
+   **Option B: Install Build Tools only (smaller download)**
+   1. Download [Build Tools for Visual Studio 2022](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
+   2. Run the installer
+   3. Select **"C++ build tools"** workload
+   4. Make sure these are checked:
+      - MSVC v143 - VS 2022 C++ x64/x86 build tools
+      - Windows 10/11 SDK
+   5. Click Install
+
+   **Option C: Via Conda (if using conda environment)**
+   ```powershell
+   conda activate opengv
+   conda install -c conda-forge compilers
+   ```
+
+2. **Path issues**: If CMake can't find Python on Windows:
+   ```bash
+   # Make sure Python is in PATH or use full path:
+   cmake .. -DPYTHON_EXECUTABLE=C:\Users\YourName\miniconda3\envs\opengv\python.exe
+   ```
+
+3. **Library naming**: On Windows, the Python extension is `.pyd` instead of `.so`. The output location may also differ:
+   - Debug: `build/lib/Debug/pyopengv.pyd`
+   - Release: `build/lib/Release/pyopengv.pyd`
 
 ## Citation
 

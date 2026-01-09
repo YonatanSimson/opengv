@@ -102,23 +102,24 @@ opengv::absolute_pose::modules::Sqpnp::add_correspondence(
     double y,
     double z)
 {
-  pws[3 * number_of_correspondences    ] = X;
-  pws[3 * number_of_correspondences + 1] = Y;
-  pws[3 * number_of_correspondences + 2] = Z;
-
   // Store full normalized bearing vector [x, y, z] instead of [x/z, y/z]
   // Normalize the bearing vector to ensure it's a unit vector
   double norm = sqrt(x*x + y*y + z*z);
   if(norm < EPSILON_ZERO_NORM)
   {
-    // Degenerate case: zero bearing vector, skip
+    // Degenerate case: zero bearing vector, skip this correspondence entirely
     return;
   }
-  
+
+  // Only store data after validation passes
+  pws[3 * number_of_correspondences    ] = X;
+  pws[3 * number_of_correspondences + 1] = Y;
+  pws[3 * number_of_correspondences + 2] = Z;
+
   us[3 * number_of_correspondences    ] = x / norm;
   us[3 * number_of_correspondences + 1] = y / norm;
   us[3 * number_of_correspondences + 2] = z / norm;
-  
+
   // Store the sign of z for omnidirectional camera support
   // This is used in solve_for_sign() to handle backward-facing vectors
   if(z > 0.0)
@@ -700,7 +701,7 @@ opengv::absolute_pose::modules::Sqpnp::sqp_solve(
   {
     Eigen::Vector3d u_i(us[3*i], us[3*i+1], us[3*i+2]);
     Eigen::Vector3d M_i(pws[3*i], pws[3*i+1], pws[3*i+2]);
-    
+
     Eigen::Vector3d p_cam = R_out * M_i + t_out;
     double norm = p_cam.norm();
     if(norm > EPSILON_ZERO_NORM)
@@ -709,10 +710,10 @@ opengv::absolute_pose::modules::Sqpnp::sqp_solve(
       double cos_angle = u_i.dot(p_dir);
       if(cos_angle > 1.0) cos_angle = 1.0;
       if(cos_angle < -1.0) cos_angle = -1.0;
-      total_error += acos(std::abs(cos_angle));  // Use abs to handle backward-facing
+      total_error += acos(cos_angle);
     }
   }
-  
+
   return total_error / number_of_correspondences;
 }
 
@@ -816,9 +817,27 @@ opengv::absolute_pose::modules::Sqpnp::solve_for_sign(void)
 {
   // For omnidirectional cameras, check if the computed camera-frame points
   // have consistent depth signs with the original bearing vectors
-  // Use the first correspondence as reference (like EPNP)
-  
-  if( (pcs[2] < 0.0 && signs[0] > 0) || (pcs[2] > 0.0 && signs[0] < 0) )
+  // Use voting mechanism across multiple correspondences for robustness
+
+  int mismatches = 0;
+  int matches = 0;
+
+  // Check sign consistency across all correspondences (or a sample)
+  int num_to_check = std::min(number_of_correspondences, 10);  // Check up to 10 points
+  for(int i = 0; i < num_to_check; i++)
+  {
+    double pc_z = pcs[3 * i + 2];
+    int sign_computed = (pc_z > 0.0) ? 1 : -1;
+    int sign_expected = signs[i];
+
+    if(sign_computed != sign_expected)
+      mismatches++;
+    else
+      matches++;
+  }
+
+  // If majority of checked points have sign mismatch, flip all points
+  if(mismatches > matches)
   {
     // Sign mismatch - flip all control points and camera-frame points
     for(int i = 0; i < 4; i++)

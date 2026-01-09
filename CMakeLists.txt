@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.12)
 project(opengv VERSION 1.0 LANGUAGES CXX)
 
 # Set C++ standard (required by Eigen 3.x)
@@ -54,12 +54,32 @@ ELSE()
 ENDIF()
 
 IF(BUILD_POSITION_INDEPENDENT_CODE)
-  add_definitions( -fPIC )
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 ENDIF()
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/modules/")
-find_package(Eigen REQUIRED)
-set(ADDITIONAL_INCLUDE_DIRS ${EIGEN_INCLUDE_DIRS} ${EIGEN_INCLUDE_DIR}/unsupported)
+
+# Find Eigen - try multiple methods for better cross-platform support
+# First try Eigen3 (modern CMake find_package)
+find_package(Eigen3 QUIET)
+if(Eigen3_FOUND)
+  # Eigen3 found via modern CMake package
+  set(ADDITIONAL_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR}/unsupported)
+  message(STATUS "Found Eigen3 via find_package(Eigen3): ${EIGEN3_INCLUDE_DIR}")
+else()
+  # Fall back to custom FindEigen module
+  find_package(Eigen REQUIRED)
+  if(EIGEN_INCLUDE_DIRS)
+    set(ADDITIONAL_INCLUDE_DIRS ${EIGEN_INCLUDE_DIRS} ${EIGEN_INCLUDE_DIRS}/unsupported)
+    message(STATUS "Found Eigen via FindEigen module: ${EIGEN_INCLUDE_DIRS}")
+  elseif(EIGEN_INCLUDE_DIR)
+    set(ADDITIONAL_INCLUDE_DIRS ${EIGEN_INCLUDE_DIR} ${EIGEN_INCLUDE_DIR}/unsupported)
+    message(STATUS "Found Eigen via FindEigen module: ${EIGEN_INCLUDE_DIR}")
+  else()
+    message(FATAL_ERROR "Eigen not found. Please install Eigen3 or set EIGEN_INCLUDE_DIR. "
+                        "On Windows with conda: conda install eigen")
+  endif()
+endif()
 
 set( OPENGV_SOURCE_FILES
   src/absolute_pose/modules/main.cpp
@@ -229,6 +249,24 @@ IF (BUILD_TESTS)
     WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
     COMMAND test_panorama_sqpnp_vs_epnp)
 
+  add_executable( test_sqpnp_edge_cases test/test_sqpnp_edge_cases.cpp )
+  target_link_libraries( test_sqpnp_edge_cases opengv random_generators )
+  add_test(NAME test_sqpnp_edge_cases
+    WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
+    COMMAND test_sqpnp_edge_cases)
+
+  add_executable( test_backward_vector_analysis test/test_backward_vector_analysis.cpp )
+  target_link_libraries( test_backward_vector_analysis opengv random_generators )
+  add_test(NAME test_backward_vector_analysis
+    WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
+    COMMAND test_backward_vector_analysis)
+
+  add_executable( test_sqpnp_hybrid_benchmark test/test_sqpnp_hybrid_benchmark.cpp )
+  target_link_libraries( test_sqpnp_hybrid_benchmark opengv random_generators )
+  add_test(NAME test_sqpnp_hybrid_benchmark
+    WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
+    COMMAND test_sqpnp_hybrid_benchmark)
+
   add_executable( test_absolute_pose_sac test/test_absolute_pose_sac.cpp )
   target_link_libraries( test_absolute_pose_sac opengv random_generators )
   add_test(NAME test_absolute_pose_sac
@@ -353,6 +391,9 @@ IF (BUILD_TESTS)
     test_sqpnp_omnidirectional
     test_panorama_sqpnp
     test_panorama_sqpnp_vs_epnp
+    test_sqpnp_edge_cases
+    test_backward_vector_analysis
+    test_sqpnp_hybrid_benchmark
 
     PROPERTIES
     CXX_STANDARD 14
@@ -406,7 +447,7 @@ install(FILES "${project_config}" "${version_config}"
 # Config
 #   * <prefix>/lib/cmake/opengv/opengvTargets.cmake
 install(EXPORT "${targets_export_name}"
-        NAMESPACE "${namespace}"
+        NAMESPACE "opengv::"
         DESTINATION "${config_install_dir}")
 
 # Headers
@@ -416,5 +457,82 @@ install(DIRECTORY include/
 
 
 if (BUILD_PYTHON)
+  # Find Python components - required for Python bindings
+  # Priority: 1) User-specified PYTHON_EXECUTABLE, 2) Conda Python, 3) System Python
+  
+  # Check if user explicitly set PYTHON_EXECUTABLE
+  if(NOT PYTHON_EXECUTABLE)
+    # Prefer conda Python if available (common on Windows with conda environments)
+    if(DEFINED ENV{CONDA_PREFIX})
+      set(_CONDA_PYTHON "$ENV{CONDA_PREFIX}/python.exe")
+      if(EXISTS "${_CONDA_PYTHON}")
+        set(PYTHON_EXECUTABLE "${_CONDA_PYTHON}" CACHE PATH "Python executable")
+        message(STATUS "Using conda Python: ${PYTHON_EXECUTABLE}")
+      endif()
+    endif()
+  endif()
+  
+  # Try modern find_package (CMake 3.12+)
+  # If PYTHON_EXECUTABLE is set, use it as hint
+  if(NOT PYTHON_EXECUTABLE)
+    find_package(Python3 COMPONENTS Interpreter Development QUIET)
+    if(Python3_FOUND)
+      set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE} CACHE PATH "Python executable")
+      if(Python3_INCLUDE_DIRS)
+        set(Python_INCLUDE_DIRS ${Python3_INCLUDE_DIRS})
+      endif()
+      if(Python3_LIBRARIES)
+        set(Python_LIBRARIES ${Python3_LIBRARIES})
+      endif()
+    endif()
+  else()
+    # PYTHON_EXECUTABLE is set, find components for it
+    find_package(Python3 COMPONENTS Interpreter Development QUIET)
+    if(Python3_FOUND AND Python3_EXECUTABLE STREQUAL PYTHON_EXECUTABLE)
+      if(Python3_INCLUDE_DIRS)
+        set(Python_INCLUDE_DIRS ${Python3_INCLUDE_DIRS})
+      endif()
+      if(Python3_LIBRARIES)
+        set(Python_LIBRARIES ${Python3_LIBRARIES})
+      endif()
+    else()
+      # Fallback: manually find components for specified executable
+      execute_process(
+        COMMAND "${PYTHON_EXECUTABLE}" -c "import sysconfig; print(sysconfig.get_path('include'))"
+        OUTPUT_VARIABLE _PYTHON_INCLUDE_DIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+      )
+      if(_PYTHON_INCLUDE_DIR)
+        set(Python_INCLUDE_DIRS ${_PYTHON_INCLUDE_DIR})
+      endif()
+    endif()
+  endif()
+  
+  # Fallback: use legacy find_package if needed
+  if(NOT PYTHON_EXECUTABLE)
+    find_package(PythonInterp REQUIRED)
+    find_package(PythonLibs QUIET)
+    if(PYTHON_INCLUDE_DIRS)
+      set(Python_INCLUDE_DIRS ${PYTHON_INCLUDE_DIRS})
+    endif()
+    if(PYTHON_LIBRARIES)
+      set(Python_LIBRARIES ${PYTHON_LIBRARIES})
+    endif()
+  endif()
+  
+  # Ensure Python executable is set
+  if(NOT PYTHON_EXECUTABLE)
+    message(FATAL_ERROR "Python executable not found. Please install Python or set PYTHON_EXECUTABLE")
+  endif()
+  
+  message(STATUS "Building Python bindings with Python: ${PYTHON_EXECUTABLE}")
+  if(Python_INCLUDE_DIRS)
+    message(STATUS "Python include dirs: ${Python_INCLUDE_DIRS}")
+  endif()
+  if(Python_LIBRARIES)
+    message(STATUS "Python libraries: ${Python_LIBRARIES}")
+  endif()
+  
   add_subdirectory( python )
 endif()

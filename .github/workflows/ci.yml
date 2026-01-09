@@ -53,6 +53,35 @@ jobs:
         pip install numpy
         PYTHONPATH=build/lib python3 python/tests.py
 
+  test-conda-environment:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Miniconda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: true
+        python-version: '3.11'
+        environment-file: environment.yml
+        activate-environment: opengv
+
+    - name: Run conda environment test (Unix)
+      if: runner.os != 'Windows'
+      run: |
+        bash scripts/test_conda_env.sh
+
+    - name: Run conda environment test (Windows)
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: |
+        .\scripts\test_conda_env.bat
+
   build-wheel-ubuntu:
     runs-on: ubuntu-22.04
     
@@ -158,6 +187,87 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: wheel-${{ matrix.os }}
+        path: dist/*.whl
+
+  build-and-test-windows-conda:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Miniconda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: true
+        python-version: '3.11'
+        environment-file: environment.yml
+        activate-environment: opengv
+
+    - name: Verify conda environment
+      shell: powershell
+      run: |
+        conda activate opengv
+        conda list
+        python --version
+        cmake --version
+
+    - name: Configure CMake (with Python and tests)
+      shell: powershell
+      run: |
+        conda activate opengv
+        mkdir build
+        cd build
+        cmake .. `
+          -DBUILD_TESTS=ON `
+          -DBUILD_PYTHON=ON `
+          -DPYTHON_EXECUTABLE=python `
+          -A x64
+
+    - name: Build everything (C++ and Python)
+      shell: powershell
+      run: |
+        conda activate opengv
+        cd build
+        cmake --build . --config Release --parallel
+
+    - name: Run C++ tests
+      shell: powershell
+      run: |
+        conda activate opengv
+        cd build
+        ctest -C Release --output-on-failure
+
+    - name: Test Python module (direct build)
+      shell: powershell
+      run: |
+        conda activate opengv
+        $env:PYTHONPATH="$PWD\build\lib\Release"
+        python python\tests.py
+
+    - name: Install wheel build tools
+      shell: powershell
+      run: |
+        conda activate opengv
+        pip install wheel build
+
+    - name: Build wheel
+      shell: powershell
+      run: |
+        conda activate opengv
+        pip wheel . --no-deps -w dist\
+
+    - name: Install and test wheel
+      shell: powershell
+      run: |
+        conda activate opengv
+        pip install dist\pyopengv-*.whl
+        python python\tests.py
+
+    - name: Upload wheel artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wheel-windows-conda
         path: dist/*.whl
 
   build-and-test-windows:
