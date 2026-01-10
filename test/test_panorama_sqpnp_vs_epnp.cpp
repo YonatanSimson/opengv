@@ -12,7 +12,12 @@
 #include <opengv/math/cayley.hpp>
 #include <sstream>
 #include <fstream>
+#ifdef _WIN32
+#define NOMINMAX
+#include <windows.h>
+#else
 #include <sys/time.h>
+#endif
 
 #include "random_generators.hpp"
 #include "experiment_helpers.hpp"

@@ -33,7 +33,7 @@
 // 1. Convert equirectangular panorama pixels (u, v) to spherical coordinates
 // 2. Convert spherical coordinates to ENU (East-North-Up) bearing vectors
 // 3. Use these bearing vectors with SQPnP for pose estimation
-
+#define NOMINMAX
 #include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
