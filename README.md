@@ -134,6 +134,35 @@ cmake --build . --config Release --parallel
 ctest -C Release --output-on-failure --parallel
 ```
 
+#### Windows (Git Bash with Clang + Ninja) - Faster Builds
+
+For significantly faster build times on Windows, use Clang and Ninja in Git Bash. This method is much faster than MSBuild and provides better compile-time diagnostics.
+
+**Prerequisites:**
+```bash
+# Install LLVM (includes Clang) and Ninja via Chocolatey
+choco install llvm ninja
+
+# Or via Conda
+conda install -c conda-forge ninja clangxx
+```
+
+**Build:**
+```bash
+mkdir build_clang && cd build_clang
+cmake .. -G Ninja \
+  -DCMAKE_CXX_COMPILER=clang++ \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_TESTS=ON \
+  -DBUILD_PYTHON=ON
+
+# Build with 8 parallel jobs
+ninja -j 8
+
+# Run tests
+ctest --output-on-failure
+```
+
 ### Building with Python Bindings
 
 If using conda, activate the environment first: `conda activate opengv`

@@ -225,15 +225,23 @@ py::object gp3p( pyarray_d &v, pyarray_d &p )
 py::object epnp( pyarray_d &v, pyarray_d &p )
 {
   CentralAbsoluteAdapter adapter(v, p);
-  return arrayFromTransformation(
-    opengv::absolute_pose::epnp(adapter));
+  opengv::transformation_t result;
+  {
+    py::gil_scoped_release release;
+    result = opengv::absolute_pose::epnp(adapter);
+  }
+  return arrayFromTransformation(result);
 }
 
 py::object sqpnp( pyarray_d &v, pyarray_d &p )
 {
   CentralAbsoluteAdapter adapter(v, p);
-  return arrayFromTransformation(
-    opengv::absolute_pose::sqpnp(adapter));
+  opengv::transformation_t result;
+  {
+    py::gil_scoped_release release;
+    result = opengv::absolute_pose::sqpnp(adapter);
+  }
+  return arrayFromTransformation(result);
 }
 
 py::object gpnp( pyarray_d &v, pyarray_d &p )

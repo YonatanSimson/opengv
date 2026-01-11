@@ -30,27 +30,45 @@ ELSE()
   OPTION(BUILD_POSITION_INDEPENDENT_CODE "Build position independent code (-fPIC)" ON)
 ENDIF()
 
+# Define M_PI for all Windows compilers (MSVC, Clang, MinGW)
+IF(WIN32)
+  add_definitions(-D_USE_MATH_DEFINES)
+ENDIF()
+
 IF(MSVC)
   add_compile_options(/wd4514 /wd4267 /bigobj)
-  add_definitions(-D_USE_MATH_DEFINES)
 ELSE()
-  IF (CMAKE_SYSTEM_PROCESSOR MATCHES "(arm64)|(ARM64)|(aarch64)|(AARCH64)")
-    add_definitions (-march=armv8-a)
-  ELSEIF (CMAKE_SYSTEM_PROCESSOR MATCHES 
-          "(arm)|(ARM)|(armhf)|(ARMHF)|(armel)|(ARMEL)")
-    add_definitions (-march=armv7-a)
-  ELSE ()
-    add_definitions (-march=native) #TODO use correct c++11 def once everybody has moved to gcc 4.7 # for now I even removed std=gnu++0x
+  # Check if we're using Clang on Windows (more conservative flags needed)
+  IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
+    # Clang on Windows: use safer optimization flags
+    add_definitions (
+      -O2
+      -Wall
+      -Wextra
+      -Wwrite-strings
+      -Wno-unused-parameter
+      -fno-strict-aliasing
+    )
+  ELSE()
+    # GCC or Clang on Unix: use aggressive optimizations
+    IF (CMAKE_SYSTEM_PROCESSOR MATCHES "(arm64)|(ARM64)|(aarch64)|(AARCH64)")
+      add_definitions (-march=armv8-a)
+    ELSEIF (CMAKE_SYSTEM_PROCESSOR MATCHES
+            "(arm)|(ARM)|(armhf)|(ARMHF)|(armel)|(ARMEL)")
+      add_definitions (-march=armv7-a)
+    ELSE ()
+      add_definitions (-march=native) #TODO use correct c++11 def once everybody has moved to gcc 4.7 # for now I even removed std=gnu++0x
+    ENDIF()
+    add_definitions (
+      -O3
+      -Wall
+      -Wextra
+      #-Werror
+      -Wwrite-strings
+      -Wno-unused-parameter
+      -fno-strict-aliasing
+    )
   ENDIF()
-  add_definitions (
-    -O3
-    -Wall
-    -Wextra
-    #-Werror
-    -Wwrite-strings
-    -Wno-unused-parameter
-    -fno-strict-aliasing
-  )
 ENDIF()
 
 IF(BUILD_POSITION_INDEPENDENT_CODE)

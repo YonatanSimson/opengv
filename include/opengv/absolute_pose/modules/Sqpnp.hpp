@@ -177,7 +177,6 @@ private:
   int number_of_correspondences;
 
   double cws[4][3], ccs[4][3];
-  double cws_determinant;
   
   static constexpr double EPSILON_ZERO_NORM = 1e-10;
 };

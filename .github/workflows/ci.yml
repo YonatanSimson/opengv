@@ -343,3 +343,81 @@ jobs:
         name: wheel-windows-vcpkg
         path: dist/*.whl
 
+  build-and-test-windows-clang-ninja:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install LLVM/Clang
+      run: |
+        choco install llvm ninja -y
+        echo "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    - name: Install Eigen and pybind11 (headers-only, via vcpkg)
+      shell: bash
+      run: |
+        git clone https://github.com/Microsoft/vcpkg.git /c/vcpkg
+        /c/vcpkg/bootstrap-vcpkg.bat
+        /c/vcpkg/vcpkg install eigen3:x64-windows pybind11:x64-windows
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install numpy pybind11
+
+    - name: Configure CMake with Clang and Ninja
+      shell: bash
+      run: |
+        export CC=clang
+        export CXX=clang++
+        mkdir build
+        cd build
+        cmake .. \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_TESTS=ON \
+          -DBUILD_PYTHON=ON \
+          -DPYTHON_EXECUTABLE=$(which python) \
+          -DCMAKE_TOOLCHAIN_FILE=/c/vcpkg/scripts/buildsystems/vcpkg.cmake
+
+    - name: Build everything with Ninja (blazing fast!)
+      shell: bash
+      run: |
+        cd build
+        ninja -j$(nproc)
+
+    - name: Run C++ tests
+      shell: bash
+      run: |
+        cd build
+        ctest --output-on-failure
+
+    - name: Test Python module (direct build)
+      shell: bash
+      run: |
+        export PYTHONPATH="$PWD/build/lib"
+        python python/tests.py
+
+    - name: Build wheel
+      run: |
+        pip install wheel build
+        pip wheel . --no-deps -w dist\
+
+    - name: Install and test wheel
+      run: |
+        pip install dist\pyopengv-*.whl
+        python python\tests.py
+
+    - name: Upload wheel artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wheel-windows-clang-ninja
+        path: dist/*.whl
+
