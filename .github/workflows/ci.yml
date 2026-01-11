@@ -293,6 +293,16 @@ jobs:
         python -m pip install --upgrade pip
         pip install numpy pybind11
 
+    - name: Verify Eigen installation
+      run: |
+        if (Test-Path "C:\vcpkg\installed\x64-windows\include\eigen3\unsupported\Eigen\NonLinearOptimization") {
+          Write-Host "Eigen unsupported modules found in vcpkg"
+        } else {
+          Write-Host "WARNING: Eigen unsupported modules NOT found"
+          Write-Host "Listing Eigen directory contents:"
+          Get-ChildItem "C:\vcpkg\installed\x64-windows\include\eigen3" -Recurse -Filter "*NonLinear*" | Select-Object FullName
+        }
+
     - name: Configure CMake (with Python and tests)
       run: |
         mkdir build
@@ -302,7 +312,6 @@ jobs:
           -DBUILD_PYTHON=ON `
           -DPYTHON_EXECUTABLE=python `
           -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
-          -DEIGEN_INCLUDE_DIR=C:\vcpkg\installed\x64-windows\include `
           -A x64
 
     - name: Build everything (C++ and Python)

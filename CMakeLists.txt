@@ -66,19 +66,34 @@ if(Eigen3_FOUND)
   # Eigen3 found via modern CMake package
   set(ADDITIONAL_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIR} ${EIGEN3_INCLUDE_DIR}/unsupported)
   message(STATUS "Found Eigen3 via find_package(Eigen3): ${EIGEN3_INCLUDE_DIR}")
+  message(STATUS "Eigen3 unsupported dir: ${EIGEN3_INCLUDE_DIR}/unsupported")
 else()
   # Fall back to custom FindEigen module
   find_package(Eigen REQUIRED)
   if(EIGEN_INCLUDE_DIRS)
     set(ADDITIONAL_INCLUDE_DIRS ${EIGEN_INCLUDE_DIRS} ${EIGEN_INCLUDE_DIRS}/unsupported)
     message(STATUS "Found Eigen via FindEigen module: ${EIGEN_INCLUDE_DIRS}")
+    message(STATUS "Eigen unsupported dir: ${EIGEN_INCLUDE_DIRS}/unsupported")
   elseif(EIGEN_INCLUDE_DIR)
     set(ADDITIONAL_INCLUDE_DIRS ${EIGEN_INCLUDE_DIR} ${EIGEN_INCLUDE_DIR}/unsupported)
     message(STATUS "Found Eigen via FindEigen module: ${EIGEN_INCLUDE_DIR}")
+    message(STATUS "Eigen unsupported dir: ${EIGEN_INCLUDE_DIR}/unsupported")
   else()
     message(FATAL_ERROR "Eigen not found. Please install Eigen3 or set EIGEN_INCLUDE_DIR. "
                         "On Windows with conda: conda install eigen")
   endif()
+endif()
+
+# Verify Eigen unsupported modules exist
+if(EXISTS "${EIGEN3_INCLUDE_DIR}/unsupported/Eigen/NonLinearOptimization")
+  message(STATUS "Eigen unsupported modules found")
+elseif(EXISTS "${EIGEN_INCLUDE_DIR}/unsupported/Eigen/NonLinearOptimization")
+  message(STATUS "Eigen unsupported modules found")
+elseif(EXISTS "${EIGEN_INCLUDE_DIRS}/unsupported/Eigen/NonLinearOptimization")
+  message(STATUS "Eigen unsupported modules found")
+else()
+  message(WARNING "Eigen unsupported modules (NonLinearOptimization, NumericalDiff) may not be available. "
+                  "Some features may not compile. Please ensure Eigen is fully installed.")
 endif()
 
 set( OPENGV_SOURCE_FILES
