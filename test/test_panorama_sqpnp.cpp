@@ -62,7 +62,7 @@ using namespace opengv;
  * @param v Pixel y-coordinate (0 to height-1)
  * @param width Panorama image width
  * @param height Panorama image height
- * @param azimuth Output azimuth angle in radians (0 to 2π, 0 = East)
+ * @param azimuth Output azimuth angle in radians (-π to 2π, 0 = North)
  * @param elevation Output elevation angle in radians (-π/2 to π/2, 0 = horizon)
  */
 void panoramaPixelToSpherical(
@@ -73,20 +73,20 @@ void panoramaPixelToSpherical(
   // Normalize pixel coordinates to [0, 1]
   double u_norm = u / (width - 1.0);
   double v_norm = v / (height - 1.0);
-  
+
   // Convert to spherical coordinates
   // Equirectangular panorama mapping:
   // u (longitude): maps linearly from 0 to 2π
-  //   u=0 corresponds to azimuth=0 (East/North depending on convention)
+  //   u=0.5 corresponds to azimuth=0 (North ENU convention)
   //   Standard: u=0 is left edge, u=width-1 is right edge
-  //   We use: u=0 → azimuth=0 (East), increasing counterclockwise
-  azimuth = 2.0 * M_PI * u_norm;
-  if (azimuth >= 2.0 * M_PI) azimuth = 2.0 * M_PI - 1e-10;  // Ensure [0, 2π)
+  //   We use: u=0 → azimuth=0 (North), increasing counterclockwise (right-handed)
+  azimuth = 2.0 * M_PI * (u_norm - 0.5);
+  if (azimuth >= M_PI) azimuth = M_PI - 1e-10;  // Ensure [-pi, pi)
   
   // v (latitude): maps from top (north pole, elevation=π/2) to bottom (south pole, elevation=-π/2)
-  //   v=0 → elevation=π/2 (looking straight up)
-  //   v=height-1 → elevation=-π/2 (looking straight down)
-  elevation = M_PI / 2.0 - M_PI * v_norm;  // Range: [π/2, -π/2]
+  //   v=0 corresponds to elevation=π/2 (looking straight up)
+  //   v=height-1 corresponds to elevation=-π/2 (looking straight down)
+  elevation = M_PI * (-v_norm + 0.5);  // Range: [π/2, -π/2]
 }
 
 /**
@@ -170,8 +170,8 @@ int main( int argc, char** argv )
   for(size_t i = 0; i < numberPoints; i++)
   {
     // Generate uniform distribution in spherical coordinates
-    // Azimuth: uniform in [0, 2π] (full 360°)
-    double azimuth = ((double)rand() / RAND_MAX) * 2.0 * M_PI;
+    // Azimuth: uniform in [-π, π] (full 360°)
+    double azimuth = ((double)rand() / RAND_MAX) * 2.0 * M_PI - M_PI;
     
     // Elevation: uniform in [-π/2, π/2] (full vertical range)
     // For equirectangular panorama, uniform elevation gives uniform pixel distribution
@@ -181,11 +181,7 @@ int main( int argc, char** argv )
     double depth = minDepth + ((double)rand() / RAND_MAX) * (maxDepth - minDepth);
     
     // Convert spherical to Cartesian in ENU frame
-    double cos_elev = cos(elevation);
-    point_t point;
-    point[0] = depth * cos_elev * sin(azimuth);  // East
-    point[1] = depth * cos_elev * cos(azimuth);   // North
-    point[2] = depth * sin(elevation);            // Up
+    point_t point = sphericalToENU(azimuth, elevation) * depth;
     
     // Transform from camera frame (ENU) to world frame
     // Since rotation = Identity, camera frame = world frame, but we still need to add position
@@ -241,11 +237,14 @@ int main( int argc, char** argv )
     // Equirectangular mapping:
     // u (longitude): 0 at left edge (azimuth = -π), width-1 at right edge (azimuth = π)
     // v (latitude): 0 at top (elevation = π/2), height-1 at bottom (elevation = -π/2)
-    double u = ((azimuth / (2.0 * M_PI)) * (panoramaWidth - 1.0));
+
+    double u_norm = (azimuth / (2.0 * M_PI)) + 0.5; // Normalize to [0, 1]
+    double v_norm = 0.5 - (elevation / M_PI);       // Normalize to [0, 1]
+    double u = u_norm * (panoramaWidth - 1.0);
     if(u < 0) u = 0;
     if(u >= panoramaWidth) u = panoramaWidth - 1.0;
-    
-    double v = ((0.5 - elevation / M_PI) * (panoramaHeight - 1.0));
+
+    double v = v_norm * (panoramaHeight - 1.0);
     if(v < 0) v = 0;
     if(v >= panoramaHeight) v = panoramaHeight - 1.0;
     
