@@ -3,8 +3,8 @@
 if(PYTHON_EXECUTABLE AND NOT Python3_FOUND)
   # Force pybind11 to use the specified Python
   set(Python3_EXECUTABLE ${PYTHON_EXECUTABLE} CACHE PATH "Python executable")
-  get_filename_component(_PYTHON_DIR ${PYTHON_EXECUTABLE} DIRECTORY)
-  get_filename_component(_PYTHON_PREFIX ${_PYTHON_DIR} DIRECTORY)
+  get_filename_component(_PYTHON_DIR "${PYTHON_EXECUTABLE}" DIRECTORY)
+  get_filename_component(_PYTHON_PREFIX "${_PYTHON_DIR}" DIRECTORY)
   set(Python3_ROOT_DIR ${_PYTHON_PREFIX} CACHE PATH "Python root directory")
   # Clear any cached Python3 variables to force re-detection
   unset(Python3_FOUND CACHE)
@@ -51,8 +51,8 @@ pybind11_add_module(pyopengv pyopengv.cpp)
 
 # Link libraries - use manual linking on Windows to avoid pybind11's Python detection issues
 if(WIN32 AND PYTHON_EXECUTABLE)
-  get_filename_component(_PYTHON_DIR ${PYTHON_EXECUTABLE} DIRECTORY)
-  get_filename_component(_PYTHON_PREFIX ${_PYTHON_DIR} DIRECTORY)
+  get_filename_component(_PYTHON_DIR "${PYTHON_EXECUTABLE}" DIRECTORY)
+  get_filename_component(_PYTHON_PREFIX "${_PYTHON_DIR}" DIRECTORY)
   
   # Get Python version to find correct library
   execute_process(
