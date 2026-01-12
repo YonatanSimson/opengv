@@ -60,6 +60,10 @@ public:
       const double y,
       const double z);
 
+  // Control hybrid mode: when true, compares SQPnP with EPnP and picks best
+  void set_hybrid_mode(bool enable) { use_hybrid_mode = enable; }
+  bool get_hybrid_mode() const { return use_hybrid_mode; }
+
   double compute_pose(double R[3][3], double T[3]);
 
   void relative_error(
@@ -177,6 +181,8 @@ private:
   int number_of_correspondences;
 
   double cws[4][3], ccs[4][3];
+  
+  bool use_hybrid_mode;  // When true, runs both SQPnP and EPnP, picks best
   
   static constexpr double EPSILON_ZERO_NORM = 1e-10;
 };

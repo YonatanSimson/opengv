@@ -136,7 +136,7 @@ void runNoiseTest(
     translation_t position = generateRandomTranslation(2.0);
     rotation_t rotation = Eigen::Matrix3d::Identity();  // Camera frame = ENU frame
     
-    // Generate random 3D points uniformly distributed across the full 360° panorama sphere
+    // Generate random 3D points uniformly distributed across the full 360 degree panorama sphere
     points_t points;
     points_t noisyPoints;
     
@@ -300,17 +300,75 @@ void runNoiseTest(
   std::cout << std::endl << "SQPnP:" << std::endl;
   std::cout << "  Position error: " << sqpnp_position_error_sum / numberOfRuns << std::endl;
   std::cout << "  Angular error: " << sqpnp_rotation_error_sum / numberOfRuns << " rad" << std::endl;
-  std::cout << "  timings: " << (sqpnp_time_sum / numberOfRuns) * 1000.0 << " ms" << std::endl;
+  double sqpnp_avg_us = (sqpnp_time_sum / numberOfRuns) * 1000000.0;  // Convert to microseconds
+  if (sqpnp_avg_us < 1000.0) {
+    std::cout << "  timings: " << sqpnp_avg_us << " us" << std::endl;
+  } else {
+    std::cout << "  timings: " << (sqpnp_time_sum / numberOfRuns) * 1000.0 << " ms" << std::endl;
+  }
   
   std::cout << std::endl << "EPNP:" << std::endl;
   std::cout << "  Position error: " << epnp_position_error_sum / numberOfRuns << std::endl;
   std::cout << "  Angular error: " << epnp_rotation_error_sum / numberOfRuns << " rad" << std::endl;
-  std::cout << "  timings: " << (epnp_time_sum / numberOfRuns) * 1000.0 << " ms" << std::endl;
+  double epnp_avg_us = (epnp_time_sum / numberOfRuns) * 1000000.0;  // Convert to microseconds
+  if (epnp_avg_us < 1000.0) {
+    std::cout << "  timings: " << epnp_avg_us << " us" << std::endl;
+  } else {
+    std::cout << "  timings: " << (epnp_time_sum / numberOfRuns) * 1000.0 << " ms" << std::endl;
+  }
   
   std::cout << std::endl << "UPNP:" << std::endl;
   std::cout << "  Position error: " << upnp_position_error_sum / numberOfRuns << std::endl;
   std::cout << "  Angular error: " << upnp_rotation_error_sum / numberOfRuns << " rad" << std::endl;
-  std::cout << "  timings: " << (upnp_time_sum / numberOfRuns) * 1000.0 << " ms" << std::endl;
+  double upnp_avg_us = (upnp_time_sum / numberOfRuns) * 1000000.0;  // Convert to microseconds
+  if (upnp_avg_us < 1000.0) {
+    std::cout << "  timings: " << upnp_avg_us << " us" << std::endl;
+  } else {
+    std::cout << "  timings: " << (upnp_time_sum / numberOfRuns) * 1000.0 << " ms" << std::endl;
+  }
+  
+  // Validate accuracy based on noise level
+  double avg_epnp_position_error = epnp_position_error_sum / numberOfRuns;
+  double avg_epnp_rotation_error = epnp_rotation_error_sum / numberOfRuns;
+  
+  double position_threshold, rotation_threshold;
+  
+  if (pixelNoiseStd == 0.0 && pointNoiseStd == 0.0 && outlierFraction == 0.0) {
+    // No noise: expect near-perfect accuracy
+    position_threshold = 1e-6;
+    rotation_threshold = 1e-6;  // rad
+  } else if (outlierFraction > 0.0) {
+    // With outliers: EPnP is not outlier-robust (needs RANSAC)
+    // EPnP can have 4-6m errors with 5% outliers - use lenient threshold
+    // Note: UPnP performs ~40x better than EPnP with outliers
+    position_threshold = 6.0;
+    rotation_threshold = 0.9;  // rad (~51°) - EPnP can fail badly with outliers
+  } else if (pixelNoiseStd > 0.0) {
+    // Pixel noise on panorama: 5 pixels in 1920 width = ~0.016 rad angular noise
+    position_threshold = 0.6;
+    rotation_threshold = 0.05;  // rad (~2.86°)
+  } else {
+    // 3D point noise only: tighter tolerance
+    position_threshold = 0.21;
+    rotation_threshold = 0.02;  // rad (~1.15°)
+  }
+  
+  std::cout << std::endl << "Validation (thresholds: pos=" << position_threshold 
+            << " m, rot=" << rotation_threshold << " rad):" << std::endl;
+  
+  if (avg_epnp_position_error > position_threshold) {
+    std::cerr << "ERROR: EPnP position error " << avg_epnp_position_error 
+              << " exceeds threshold " << position_threshold << std::endl;
+    exit(1);
+  }
+  if (avg_epnp_rotation_error > rotation_threshold) {
+    std::cerr << "ERROR: EPnP rotation error " << avg_epnp_rotation_error 
+              << " rad exceeds threshold " << rotation_threshold << " rad" << std::endl;
+    exit(1);
+  }
+  
+  std::cout << "  [PASS] EPnP position error: " << avg_epnp_position_error << " < " << position_threshold << std::endl;
+  std::cout << "  [PASS] EPnP rotation error: " << avg_epnp_rotation_error << " < " << rotation_threshold << std::endl;
 }
 
 int main( int argc, char** argv )
@@ -319,7 +377,7 @@ int main( int argc, char** argv )
   initializeRandomSeed();
   
   std::cout << "==================================================" << std::endl;
-  std::cout << "SQPnP vs EPNP vs UPNP Comparison for Panorama 360°" << std::endl;
+  std::cout << "Panorama Algorithm Comparison: UPnP vs EPnP vs SQPnP" << std::endl;
   std::cout << "Full 360° equirectangular panorama test" << std::endl;
   std::cout << "==================================================" << std::endl;
   

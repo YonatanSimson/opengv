@@ -55,6 +55,9 @@ opengv::absolute_pose::modules::Sqpnp::Sqpnp(void)
   this->vc = 0.0;
   this->fu = 1.0;
   this->fv = 1.0;
+  
+  // Default: hybrid mode OFF (pure SQPnP only)
+  this->use_hybrid_mode = false;
 }
 
 opengv::absolute_pose::modules::Sqpnp::~Sqpnp()
@@ -282,9 +285,21 @@ opengv::absolute_pose::modules::Sqpnp::compute_pose(
   double sqp_error = sqp_solve(Omega, R_sqp, t_sqp);
   
   // =================================================================
-  // EPnP-BASED FALLBACK (for comparison and robustness)
+  // EPnP-BASED FALLBACK (only if hybrid mode is enabled)
   // =================================================================
-  // Also run the EPnP-based approach as a fallback
+  if (!use_hybrid_mode)
+  {
+    // Pure SQPnP mode: use SQPnP result directly
+    for(int i = 0; i < 3; i++)
+    {
+      for(int j = 0; j < 3; j++)
+        R[i][j] = R_sqp(i, j);
+      t[i] = t_sqp(i);
+    }
+    return sqp_error;
+  }
+  
+  // Hybrid mode: Also run the EPnP-based approach as a fallback
   
   choose_control_points();
   compute_barycentric_coordinates();

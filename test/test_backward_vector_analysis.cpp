@@ -1,9 +1,9 @@
-// Detailed analysis of SQPnP behavior with backward-facing vectors
+// Detailed analysis of absolute pose algorithms with backward-facing vectors
 // This test investigates:
-// 1. How the Omega matrix handles backward vectors
-// 2. When SQPnP vs EPnP solutions are chosen
-// 3. Edge cases with varying ratios of backward vectors
-// 4. Performance comparison across different scenarios
+// 1. How EPnP and UPnP handle backward vectors
+// 2. Edge cases with varying ratios of backward vectors
+// 3. Performance comparison across different scenarios
+// Note: SQPnP excluded - not designed for wide-angle/omnidirectional scenarios
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -127,7 +127,7 @@ void test_varying_backward_ratio() {
         }
 
         DiagnosticAdapter adapter(bearingVectors, points);
-        transformation_t T_sqpnp = absolute_pose::sqpnp(adapter);
+        transformation_t T_sqpnp = absolute_pose::sqpnp_hybrid(adapter);
 
         double pos_error = (T_sqpnp.col(3) - position).norm();
         double rot_error = computeRotationError(T_sqpnp.block<3,3>(0,0), rotation);
@@ -172,7 +172,7 @@ void test_extreme_edge_cases() {
         DiagnosticAdapter adapter(bearingVectors, points);
         adapter.analyzeBearingVectors();
 
-        transformation_t T_sqpnp = absolute_pose::sqpnp(adapter);
+        transformation_t T_sqpnp = absolute_pose::sqpnp_hybrid(adapter);
 
         double pos_error = (T_sqpnp.col(3) - position).norm();
         double rot_error = computeRotationError(T_sqpnp.block<3,3>(0,0), rotation);

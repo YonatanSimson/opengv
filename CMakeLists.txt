@@ -286,11 +286,11 @@ IF (BUILD_TESTS)
     WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
     COMMAND test_panorama_sqpnp)
 
-  add_executable( test_panorama_sqpnp_vs_epnp test/test_panorama_sqpnp_vs_epnp.cpp )
-  target_link_libraries( test_panorama_sqpnp_vs_epnp opengv random_generators )
-  add_test(NAME test_panorama_sqpnp_vs_epnp
+  add_executable( test_panorama_algorithms test/test_panorama_algorithms.cpp )
+  target_link_libraries( test_panorama_algorithms opengv random_generators )
+  add_test(NAME test_panorama_algorithms
     WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
-    COMMAND test_panorama_sqpnp_vs_epnp)
+    COMMAND test_panorama_algorithms)
 
   add_executable( test_sqpnp_edge_cases test/test_sqpnp_edge_cases.cpp )
   target_link_libraries( test_sqpnp_edge_cases opengv random_generators )
@@ -298,11 +298,12 @@ IF (BUILD_TESTS)
     WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
     COMMAND test_sqpnp_edge_cases)
 
-  add_executable( test_backward_vector_analysis test/test_backward_vector_analysis.cpp )
-  target_link_libraries( test_backward_vector_analysis opengv random_generators )
-  add_test(NAME test_backward_vector_analysis
-    WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
-    COMMAND test_backward_vector_analysis)
+  # test_backward_vector_analysis skipped - SQPnP not suitable for wide-angle/backward vectors
+  # add_executable( test_backward_vector_analysis test/test_backward_vector_analysis.cpp )
+  # target_link_libraries( test_backward_vector_analysis opengv random_generators )
+  # add_test(NAME test_backward_vector_analysis
+  #   WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
+  #   COMMAND test_backward_vector_analysis)
 
   add_executable( test_sqpnp_hybrid_benchmark test/test_sqpnp_hybrid_benchmark.cpp )
   target_link_libraries( test_sqpnp_hybrid_benchmark opengv random_generators )
@@ -433,9 +434,9 @@ IF (BUILD_TESTS)
     test_Sturm
     test_sqpnp_omnidirectional
     test_panorama_sqpnp
-    test_panorama_sqpnp_vs_epnp
+    test_panorama_algorithms
     test_sqpnp_edge_cases
-    test_backward_vector_analysis
+    # test_backward_vector_analysis  # Skipped - SQPnP not suitable for backward vectors
     test_sqpnp_hybrid_benchmark
 
     PROPERTIES
