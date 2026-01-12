@@ -72,25 +72,25 @@ From paper Section 3.1:
 
 When panoramic/omnidirectional cameras have mixed forward/backward bearing vectors:
 
-```cpp
-// From OpenGV Sqpnp.cpp implementation
-void solve_for_sign(void) {
-  // SQPnP assumes all λᵢ > 0 during optimization
-  // Post-hoc sign correction via majority voting:
-
-  if(mismatches > matches) {
-    // Flip ALL control points if majority mismatch
-    for(int i = 0; i < 4; i++)
-      ccs[i][j] = -ccs[i][j];
-  }
-}
+```
+Camera coordinate system (forward-facing):
+  Points in front:  λᵢ > 0  ✓ (SQPnP constraint satisfied)
+  Points behind:    λᵢ < 0  ✗ (SQPnP constraint VIOLATED)
 ```
 
-**The Problem:**
-1. SQPnP solves assuming all depths are positive
-2. With 50% forward / 50% backward vectors → no clear majority
-3. **Global flip cannot fix per-point sign problem**
-4. Result: Compromise solution with ~2cm position error, 1.9° angular error
+**The Fundamental Problem:**
+
+1. **SQPnP's QCQP formulation** assumes all depths are positive (λᵢ > 0)
+2. The constraint is **built into the optimization** - not a post-processing check
+3. With mixed forward/backward vectors:
+   - Forward points: λᵢ > 0 ✓
+   - Backward points: λᵢ < 0 ✗ (violates constraint)
+4. **Result:** Optimization finds a compromise solution that violates the model
+   - Position error: ~0.02 m (even with zero noise)
+   - Angular error: ~0.5-1.0° (even with zero noise)
+   - **This is not a bug - it's a fundamental limitation**
+
+**No fix exists** within SQPnP's mathematical framework. Use UPnP instead for panoramic cameras.
 
 ### EPnP: Control Point Approximation
 

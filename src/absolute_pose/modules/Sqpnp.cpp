@@ -49,7 +49,6 @@ opengv::absolute_pose::modules::Sqpnp::Sqpnp(void)
   us = 0;
   alphas = 0;
   pcs = 0;
-  signs = 0;
 
   this->uc = 0.0;
   this->vc = 0.0;
@@ -66,7 +65,6 @@ opengv::absolute_pose::modules::Sqpnp::~Sqpnp()
   delete [] us;
   delete [] alphas;
   delete [] pcs;
-  delete [] signs;
 }
 
 void
@@ -79,14 +77,12 @@ opengv::absolute_pose::modules::Sqpnp::
     if (us != 0) delete [] us;
     if (alphas != 0) delete [] alphas;
     if (pcs != 0) delete [] pcs;
-    if (signs != 0) delete [] signs;
 
     maximum_number_of_correspondences = n;
     pws = new double[3 * maximum_number_of_correspondences];
-    us = new double[3 * maximum_number_of_correspondences];  // Changed: store full bearing vectors [x, y, z]
+    us = new double[3 * maximum_number_of_correspondences];
     alphas = new double[4 * maximum_number_of_correspondences];
     pcs = new double[3 * maximum_number_of_correspondences];
-    signs = new int[maximum_number_of_correspondences];
   }
 }
 
@@ -122,13 +118,6 @@ opengv::absolute_pose::modules::Sqpnp::add_correspondence(
   us[3 * number_of_correspondences    ] = x / norm;
   us[3 * number_of_correspondences + 1] = y / norm;
   us[3 * number_of_correspondences + 2] = z / norm;
-
-  // Store the sign of z for omnidirectional camera support
-  // This is used in solve_for_sign() to handle backward-facing vectors
-  if(z > 0.0)
-    signs[number_of_correspondences] = 1;
-  else
-    signs[number_of_correspondences] = -1;
 
   number_of_correspondences++;
 }
@@ -827,47 +816,6 @@ opengv::absolute_pose::modules::Sqpnp::print_pose(
   cout << R[2][0] << " " << R[2][1] << " " << R[2][2] << " " << t[2] << endl;
 }
 
-void
-opengv::absolute_pose::modules::Sqpnp::solve_for_sign(void)
-{
-  // For omnidirectional cameras, check if the computed camera-frame points
-  // have consistent depth signs with the original bearing vectors
-  // Use voting mechanism across multiple correspondences for robustness
-
-  int mismatches = 0;
-  int matches = 0;
-
-  // Check sign consistency across all correspondences (or a sample)
-  int num_to_check = std::min(number_of_correspondences, 10);  // Check up to 10 points
-  for(int i = 0; i < num_to_check; i++)
-  {
-    double pc_z = pcs[3 * i + 2];
-    int sign_computed = (pc_z > 0.0) ? 1 : -1;
-    int sign_expected = signs[i];
-
-    if(sign_computed != sign_expected)
-      mismatches++;
-    else
-      matches++;
-  }
-
-  // If majority of checked points have sign mismatch, flip all points
-  if(mismatches > matches)
-  {
-    // Sign mismatch - flip all control points and camera-frame points
-    for(int i = 0; i < 4; i++)
-      for(int j = 0; j < 3; j++)
-        ccs[i][j] = -ccs[i][j];
-
-    for(int i = 0; i < number_of_correspondences; i++)
-    {
-      pcs[3 * i    ] = -pcs[3 * i];
-      pcs[3 * i + 1] = -pcs[3 * i + 1];
-      pcs[3 * i + 2] = -pcs[3 * i + 2];
-    }
-  }
-}
-
 double
 opengv::absolute_pose::modules::Sqpnp::compute_R_and_t(
     const Eigen::MatrixXd & Ut,
@@ -877,9 +825,6 @@ opengv::absolute_pose::modules::Sqpnp::compute_R_and_t(
 {
   compute_ccs(betas, Ut);
   compute_pcs();
-
-  // Handle sign for omnidirectional cameras
-  solve_for_sign();
 
   estimate_R_and_t(R, t);
 

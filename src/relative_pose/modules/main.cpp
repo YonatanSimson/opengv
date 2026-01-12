@@ -852,7 +852,7 @@ opengv::relative_pose::modules::ge_main(
   Eigen::Vector4d D;
   Eigen::Matrix4d V;
   
-  std::vector< myPair_ge > pairs;
+  std::vector< myPair_ge, Eigen::aligned_allocator<myPair_ge> > pairs;
   for(size_t i = 0; i < 4; i++) {
     myPair_ge newPair;
     newPair.second = D_complex[i].real();
@@ -1024,7 +1024,7 @@ opengv::relative_pose::modules::ge_main2(
   Eigen::Vector4d D;
   Eigen::Matrix4d V;
   
-  std::vector< myPair_ge > pairs;
+  std::vector< myPair_ge, Eigen::aligned_allocator<myPair_ge> > pairs;
   for(size_t i = 0; i < 4; i++) {
     myPair_ge newPair;
     newPair.second = D_complex[i].real();

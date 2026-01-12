@@ -9,3 +9,4 @@ _codeql_detected_source_root
 .venv/
 dist/
 pyopengv.egg-info
+*.pyd
