@@ -372,8 +372,10 @@ jobs:
     - name: Install Eigen and pybind11 (headers-only, via vcpkg)
       shell: bash
       run: |
-        git clone https://github.com/Microsoft/vcpkg.git /c/vcpkg
-        /c/vcpkg/bootstrap-vcpkg.bat
+        if [ ! -d "/c/vcpkg" ]; then
+          git clone https://github.com/Microsoft/vcpkg.git /c/vcpkg
+          /c/vcpkg/bootstrap-vcpkg.bat
+        fi
         /c/vcpkg/vcpkg install eigen3:x64-windows pybind11:x64-windows
 
     - name: Install Python dependencies
