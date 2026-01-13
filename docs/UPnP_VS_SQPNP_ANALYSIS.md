@@ -39,10 +39,30 @@ Comprehensive testing with 360° equirectangular panoramic cameras (200 points, 
 - ✅ **O(n) complexity** - linear in number of points
 - ✅ **Sign-independent** - no λᵢ > 0 constraint
 
+**Why UPnP is Truly Universal:**
+
+UPnP is the **only PnP algorithm that correctly handles mixed forward/backward bearing vectors** because:
+
+1. **No Global Sign Ambiguity:**
+   - UPnP's formulation inherently resolves the sign ambiguity that plagues EPnP and SQPnP
+   - The null-space parameterization with Cayley transform naturally handles both hemispheres
+   - Returns **multiple solution branches** (up to 4), allowing evaluation of all possibilities
+
+2. **No Hemisphere Assumptions:**
+   - Does NOT assume all bearing vectors point in same direction
+   - Does NOT track or flip signs based on first point (unlike EPnP)
+   - Does NOT have cross-product ambiguity (unlike SQPnP)
+
+3. **Depth-Invariant Formulation:**
+   - Eliminates depth variables λᵢ through null-space projection
+   - Constraint: bearing vector parallel to transformed point **WITHOUT sign assumption**
+   - Works for depth ranges from 0.5m to 50m (100× range) with no degradation
+
 **Key Strengths:**
 - Direct null-space formulation without intermediate control points
 - Numerically stable with wide FOV and near-coplanar configurations
-- Returns multiple solutions for robustness
+- Returns multiple solutions for robustness (evaluate all, pick best via reprojection error)
+- **No post-processing sign disambiguation needed**
 
 ### SQPnP: Conditionally Global Solver
 
@@ -70,27 +90,39 @@ From paper Section 3.1:
 
 **Why It Fails for Backward Vectors:**
 
-When panoramic/omnidirectional cameras have mixed forward/backward bearing vectors:
+When panoramic/omnidirectional cameras have mixed forward/backward bearing vectors, SQPnP fails because its mathematical formulation assumes unidirectional (same-hemisphere) bearing vectors.
 
+**Important Clarification - Depth Convention:**
+
+The depth λᵢ is **always the positive radial distance**:
 ```
-Camera coordinate system (forward-facing):
-  Points in front:  λᵢ > 0  ✓ (SQPnP constraint satisfied)
-  Points behind:    λᵢ < 0  ✗ (SQPnP constraint VIOLATED)
+λᵢ = ||R*Mᵢ + t|| = sqrt(x² + y² + z²)  (always positive)
 ```
 
-**The Fundamental Problem:**
+For any 3D point in camera frame:
+- **Forward-facing**: bearing vector `[x, y, z]/λ` with `z > 0`, depth `λ > 0` ✓
+- **Backward-facing**: bearing vector `[x, y, -z]/λ` with `z < 0`, depth `λ > 0` ✓
 
-1. **SQPnP's QCQP formulation** assumes all depths are positive (λᵢ > 0)
-2. The constraint is **built into the optimization** - not a post-processing check
-3. With mixed forward/backward vectors:
-   - Forward points: λᵢ > 0 ✓
-   - Backward points: λᵢ < 0 ✗ (violates constraint)
-4. **Result:** Optimization finds a compromise solution that violates the model
-   - Position error: ~0.02 m (even with zero noise)
-   - Angular error: ~0.5-1.0° (even with zero noise)
-   - **This is not a bug - it's a fundamental limitation**
+**Both depths are positive!** The issue is NOT about depth sign.
 
-**No fix exists** within SQPnP's mathematical framework. Use UPnP instead for panoramic cameras.
+**The Actual Problem - Cross-Product Constraint Ambiguity:**
+
+SQPnP uses the constraint: `uᵢ × (R*Mᵢ + t) = 0`
+
+This means the bearing vector must be **parallel** to the transformed point, but allows two solutions:
+1. `(R*Mᵢ + t) = +λ * uᵢ` (same direction)
+2. `(R*Mᵢ + t) = -λ * uᵢ` (opposite direction - **global sign flip**)
+
+SQPnP's optimization suffers from **global sign ambiguity**: the solution and its negation both satisfy the cross-product constraint. When you have:
+- 100 forward-facing points expecting solution 1
+- 100 backward-facing points expecting solution 2
+
+The optimizer finds a **compromise solution** that partially satisfies both, resulting in:
+- Position error: ~0.02 m (even with zero noise)
+- Angular error: ~0.5-1.0° (even with zero noise)
+- **This is not a bug - it's a fundamental limitation of the formulation**
+
+**No fix exists** within SQPnP's mathematical framework. The cross-product constraint is inherently ambiguous for mixed-hemisphere bearing vectors.
 
 ### EPnP: Control Point Approximation
 
@@ -99,10 +131,49 @@ Camera coordinate system (forward-facing):
 - Solves for control point positions
 - Reconstructs all points from control points
 
+**Why It Fails for Mixed Forward/Backward Vectors:**
+
+EPnP also suffers from **global sign ambiguity** but handles it with post-processing:
+
+**Sign Tracking (Epnp.cpp:112-115):**
+```cpp
+// Record original sign of z-coordinate for each correspondence
+if(z > 0.0)
+    signs[i] = 1;  // Forward-facing
+else
+    signs[i] = -1; // Backward-facing
+```
+
+**Sign Disambiguation (Epnp.cpp:452-464):**
+```cpp
+// After solving, check if first point has correct sign
+if( (pcs[2] < 0.0 && signs[0] > 0) || (pcs[2] > 0.0 && signs[0] < 0) )
+{
+    // FLIP ALL control points and reconstructed points
+    for(int i = 0; i < 4; i++)
+        ccs[i] = -ccs[i];
+    for(int i = 0; i < number_of_correspondences; i++)
+        pcs[i] = -pcs[i];
+}
+```
+
+**The Problem:**
+- EPnP uses **only the first point** to decide whether to flip the entire solution
+- Assumes all bearing vectors have the **same hemisphere** (all forward OR all backward)
+- For panoramic cameras with **mixed forward/backward vectors**:
+  - If solution matches first point → all opposite-hemisphere points are flipped incorrectly
+  - If solution opposes first point → EPnP flips everything → first-hemisphere points correct, opposite-hemisphere points still wrong
+
+**Result:**
+- Position error: ~1e-11 m (much better than SQPnP)
+- Why better? Sign flip is **post-processing** (after optimization), so errors from incorrectly-flipped points are averaged out via least-squares
+- SQPnP's error is **in the optimization itself**, causing larger compromise errors
+
 **Why It Degrades with Wide FOV:**
 - Errors in control points **amplify** to all reconstructed points
 - Wide FOV → control points span large volume → higher numerical instability
 - Near-coplanar configurations → ill-conditioned system
+- Sign flip affects **subset of points** → partial failures in averaging
 
 ## Performance Comparison
 
@@ -380,6 +451,100 @@ This library provides:
    - UPnP + nonlinear refinement
    - Achieves 1.8e-15 m precision
 
+## Why Only UPnP is Truly Universal: The Sign Ambiguity Problem
+
+### The Fundamental Issue
+
+All PnP algorithms must handle a fundamental ambiguity: given a bearing vector **u** and a 3D point **M**, the constraint that **u is parallel to (R*M + t)** has two solutions:
+
+1. **(R\*M + t) = +λ \* u** (same direction)
+2. **(R\*M + t) = -λ \* u** (opposite direction - global sign flip)
+
+For panoramic/omnidirectional cameras with **mixed forward/backward bearing vectors**, this creates an impossible situation for algorithms that assume unidirectional (same-hemisphere) bearing vectors.
+
+### How Each Algorithm Handles Sign Ambiguity
+
+#### EPnP: Post-Processing Sign Flip (Better, but Still Fails)
+
+**Implementation** ([Epnp.cpp:452-464](../src/absolute_pose/modules/Epnp.cpp#L452)):
+```cpp
+// Record sign during input
+if(z > 0.0) signs[i] = 1; else signs[i] = -1;
+
+// After solving, flip entire solution if first point has wrong sign
+if( (pcs[2] < 0.0 && signs[0] > 0) || (pcs[2] > 0.0 && signs[0] < 0) )
+{
+    // Flip ALL control points and reconstructed points
+    for(int i = 0; i < 4; i++) ccs[i] = -ccs[i];
+    for(int i = 0; i < number_of_correspondences; i++) pcs[i] = -pcs[i];
+}
+```
+
+**Problem:**
+- Uses **only first point** to decide global flip
+- Assumes all points are in **same hemisphere**
+- For mixed forward/backward:
+  - Forward points (50%): ✓ correct after flip
+  - Backward points (50%): ✗ flipped incorrectly
+- **Result:** ~1e-11 m error (errors average out via least-squares)
+
+**Why it's better than SQPnP:** Sign flip is **post-processing** (after optimization), so incorrect points are just data points in least-squares averaging, not optimization constraints.
+
+#### SQPnP: Cross-Product Ambiguity (Worse, Fundamental Failure)
+
+**Implementation** ([Sqpnp.cpp:528](../src/absolute_pose/modules/Sqpnp.cpp#L528)):
+```cpp
+// Constraint: uᵢ × (R*Mᵢ + t) = 0
+// This means: bearing vector PARALLEL to transformed point
+// But allows both +λ*u and -λ*u as solutions
+```
+
+**Problem:**
+- Cross-product constraint is **inherently ambiguous** about sign
+- No explicit sign tracking or disambiguation
+- The optimization **itself** must resolve the ambiguity
+- With mixed forward/backward points:
+  - 50% want solution: (R\*M + t) = +λ\*u
+  - 50% want solution: (R\*M + t) = -λ\*u
+  - Optimizer finds **compromise** that satisfies neither
+- **Result:** ~0.02 m error (even with zero noise!)
+
+**Why it's worse than EPnP:** The ambiguity is **in the optimization formulation**, so the solver converges to a geometrically-invalid compromise solution.
+
+#### UPnP: Sign-Resolved Formulation (Perfect - Truly Universal)
+
+**Implementation:** UPnP's null-space formulation with Cayley transform naturally resolves sign ambiguity
+
+**How it works:**
+1. **No depth variables:** Eliminates λᵢ through null-space projection
+2. **Multiple solution branches:** Returns up to 4 candidate poses
+3. **Reprojection evaluation:** Pick best solution by testing all candidates
+4. **No hemisphere assumptions:** Each solution branch can handle mixed directions
+
+**Result:**
+- Position error: ~1e-15 m (numerical precision limit)
+- Works for **any bearing vector configuration**:
+  - 100% forward ✓
+  - 100% backward ✓
+  - 50% forward / 50% backward ✓
+  - Any mix ✓
+
+**Why it's universal:** The formulation inherently handles sign ambiguity by:
+- Returning multiple candidates (explores both sign possibilities)
+- No post-processing sign flip needed
+- No cross-product ambiguity in constraints
+- **The ONLY algorithm designed for omnidirectional cameras**
+
+### Summary Comparison
+
+| Algorithm | Sign Handling | Panoramic Error | Why? |
+|-----------|---------------|-----------------|------|
+| **UPnP** | Multiple solutions | ~1e-15 m ✓ | Explores all sign possibilities |
+| **EPnP** | Global flip via first point | ~1e-11 m ⚠️ | Post-processing averages errors |
+| **SQPnP** | Cross-product (ambiguous) | ~0.02 m ✗ | Optimization finds compromise |
+
+**Conclusion:** UPnP is the **only PnP algorithm** that can correctly handle mixed forward/backward bearing vectors, making it the only truly universal solver for panoramic and omnidirectional cameras.
+
 ## References
 
 ### Papers
@@ -407,12 +572,18 @@ This library provides:
 
 1. OpenCV's broken implementation (since 2015)
 2. Research testing bias toward standard forward-facing datasets
-3. SQPnP's successful marketing as "globally optimal" without stating the λᵢ > 0 constraint
+3. SQPnP's successful marketing as "globally optimal" without stating hemisphere constraints
 4. Lack of widespread panoramic/omnidirectional testing
+5. Insufficient understanding of the **sign ambiguity problem** in PnP formulations
+
+**Key Discovery:** The fundamental difference between algorithms is how they handle **global sign ambiguity**:
+- **EPnP:** Post-processing sign flip based on first point → partial failures averaged out
+- **SQPnP:** Cross-product constraint ambiguity → optimization finds invalid compromise
+- **UPnP:** Multiple solution branches → explores all sign possibilities → truly universal
 
 **This library and its comprehensive testing reveal the truth:** When you need universal applicability and true global optimality, **UPnP is the only proven solution**.
 
-For omnidirectional and wide-angle computer vision, UPnP is not just better - **it's the only algorithm that works**.
+For omnidirectional and wide-angle computer vision, UPnP is not just better - **it's the only algorithm that works correctly**.
 
 ---
 

@@ -1,11 +1,28 @@
 
 # Configure Python before finding pybind11 to ensure correct Python is used
-if(PYTHON_EXECUTABLE AND NOT Python3_FOUND)
+if(PYTHON_EXECUTABLE)
   # Force pybind11 to use the specified Python
-  set(Python3_EXECUTABLE ${PYTHON_EXECUTABLE} CACHE PATH "Python executable")
+  set(Python3_EXECUTABLE ${PYTHON_EXECUTABLE} CACHE PATH "Python executable" FORCE)
   get_filename_component(_PYTHON_DIR "${PYTHON_EXECUTABLE}" DIRECTORY)
   get_filename_component(_PYTHON_PREFIX "${_PYTHON_DIR}" DIRECTORY)
-  set(Python3_ROOT_DIR ${_PYTHON_PREFIX} CACHE PATH "Python root directory")
+  set(Python3_ROOT_DIR ${_PYTHON_PREFIX} CACHE PATH "Python root directory" FORCE)
+  
+  # Get Python version to set FIND_VERSION
+  execute_process(
+    COMMAND "${PYTHON_EXECUTABLE}" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
+    OUTPUT_VARIABLE _PYTHON_VERSION_STR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+  )
+  if(_PYTHON_VERSION_STR)
+    string(REPLACE "." ";" _PYTHON_VERSION_LIST ${_PYTHON_VERSION_STR})
+    list(GET _PYTHON_VERSION_LIST 0 _PYTHON_MAJOR)
+    list(GET _PYTHON_VERSION_LIST 1 _PYTHON_MINOR)
+    set(Python3_FIND_VERSION ${_PYTHON_VERSION_STR} CACHE STRING "Python version" FORCE)
+    set(Python3_FIND_VERSION_MAJOR ${_PYTHON_MAJOR} CACHE STRING "Python major version" FORCE)
+    set(Python3_FIND_VERSION_MINOR ${_PYTHON_MINOR} CACHE STRING "Python minor version" FORCE)
+  endif()
+  
   # Clear any cached Python3 variables to force re-detection
   unset(Python3_FOUND CACHE)
   unset(Python3_LIBRARIES CACHE)
@@ -77,9 +94,22 @@ if(WIN32 AND PYTHON_EXECUTABLE)
       target_compile_options(pyopengv PRIVATE -fno-lto)
     endif()
 
-    # Link opengv and Python library
-    # Note: pybind11_add_module already sets up basic linking, we just add opengv
-    target_link_libraries(pyopengv PRIVATE opengv ${CORRECT_PYTHON_LIB})
+    # Link opengv and pybind11::module (which will add wrong Python lib)
+    target_link_libraries(pyopengv PRIVATE opengv pybind11::module)
+    
+    # Override: Remove wrong Python libraries and add correct one
+    # Use target_link_options to remove wrong library paths
+    if(MSVC)
+      # Remove wrong Python library paths
+      target_link_options(pyopengv PRIVATE 
+        /NODEFAULTLIB:python313.lib
+        /NODEFAULTLIB:python311.lib
+      )
+    endif()
+    
+    # Add correct Python library (this will override any previous Python lib)
+    target_link_libraries(pyopengv PRIVATE ${CORRECT_PYTHON_LIB})
+    
     message(STATUS "Using Python library: ${CORRECT_PYTHON_LIB}")
   else()
     # Fallback to standard linking
