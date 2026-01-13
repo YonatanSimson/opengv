@@ -261,29 +261,6 @@ transformation_t sqpnp(
     const AbsoluteAdapterBase & adapter,
     const std::vector<int> & indices );
 
-/**
- * \brief Compute the pose using hybrid SQPnP/EPnP approach.
- *        Runs both SQPnP and EPnP algorithms and returns the solution with
- *        lower reprojection error. This provides robustness at the cost of
- *        additional computation time.
- *
- * \param[in] adapter Visitor holding bearing vector to world point correspondences.
- * \return Pose of viewpoint (best result from SQPnP or EPnP).
- */
-transformation_t sqpnp_hybrid( const AbsoluteAdapterBase & adapter );
-
-/**
- * \brief Compute the pose using hybrid SQPnP/EPnP approach.
- *        Runs both SQPnP and EPnP algorithms and returns the solution with
- *        lower reprojection error.
- *
- * \param[in] adapter Visitor holding bearing vector to world point correspondences.
- * \param[in] indices Indices of the correspondences to use.
- * \return Pose of viewpoint (best result from SQPnP or EPnP).
- */
-transformation_t sqpnp_hybrid(
-    const AbsoluteAdapterBase & adapter,
-    const std::vector<int> & indices );
 
 /**
  * \brief Compute the pose of a non-central viewpoint using the gPnP method [3].

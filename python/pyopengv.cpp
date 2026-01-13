@@ -244,17 +244,6 @@ py::object sqpnp( pyarray_d &v, pyarray_d &p )
   return arrayFromTransformation(result);
 }
 
-py::object sqpnp_hybrid( pyarray_d &v, pyarray_d &p )
-{
-  CentralAbsoluteAdapter adapter(v, p);
-  opengv::transformation_t result;
-  {
-    py::gil_scoped_release release;
-    result = opengv::absolute_pose::sqpnp_hybrid(adapter);
-  }
-  return arrayFromTransformation(result);
-}
-
 py::object gpnp( pyarray_d &v, pyarray_d &p )
 {
   CentralAbsoluteAdapter adapter(v, p);
@@ -745,9 +734,7 @@ PYBIND11_MODULE(pyopengv, m) {
   m.def("absolute_pose_epnp", pyopengv::absolute_pose::epnp,
         "EPnP: Fast absolute pose solver. Good for standard pinhole cameras.");
   m.def("absolute_pose_sqpnp", pyopengv::absolute_pose::sqpnp,
-        "SQPnP: Square Root PnP (pure mode). NOT suitable for panoramic/wide-angle views. Use sqpnp_hybrid or upnp instead.");
-  m.def("absolute_pose_sqpnp_hybrid", pyopengv::absolute_pose::sqpnp_hybrid,
-        "SQPnP Hybrid: Automatically selects between SQPnP and EPnP fallback.");
+        "SQPnP: Square Root PnP. NOT suitable for panoramic/wide-angle views. Use upnp instead.");
   m.def("absolute_pose_gpnp", pyopengv::absolute_pose::gpnp);
   m.def("absolute_pose_upnp", pyopengv::absolute_pose::upnp,
         "UPnP: Uncalibrated Perspective-n-Point. RECOMMENDED for panoramic/360° cameras and wide-angle views. ~20-30x more accurate than EPnP for panoramas.");

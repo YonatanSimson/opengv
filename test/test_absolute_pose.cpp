@@ -131,13 +131,6 @@ int main( int argc, char** argv )
   gettimeofday( &toc, 0 );
   double sqpnp_time = TIMETODOUBLE(timeval_minus(toc,tic)) / iterations;
 
-  std::cout << "running sqpnp_hybrid (all correspondences)" << std::endl;
-  transformation_t sqpnp_hybrid_transformation;
-  gettimeofday( &tic, 0 );
-  for(size_t i = 0; i < iterations; i++)
-    sqpnp_hybrid_transformation = absolute_pose::sqpnp_hybrid(adapter);
-  gettimeofday( &toc, 0 );
-  double sqpnp_hybrid_time = TIMETODOUBLE(timeval_minus(toc,tic)) / iterations;
 
   std::cout << "running epnp with 6 correspondences" << std::endl;
   std::vector<int> indices6 = getNindices(6);
@@ -197,8 +190,6 @@ int main( int argc, char** argv )
   std::cout << epnp_transformation << std::endl << std::endl;
   std::cout << "results from sqpnp algorithm:" << std::endl;
   std::cout << sqpnp_transformation << std::endl << std::endl;
-  std::cout << "results from sqpnp_hybrid algorithm:" << std::endl;
-  std::cout << sqpnp_hybrid_transformation << std::endl << std::endl;
   std::cout << "results from epnp algorithm with only 6 correspondences:";
   std::cout << std::endl;
   std::cout << epnp_transformation_6 << std::endl << std::endl;
@@ -225,8 +216,6 @@ int main( int argc, char** argv )
   std::cout << epnp_time << std::endl;
   std::cout << "timings from sqpnp algorithm: ";
   std::cout << sqpnp_time << std::endl;
-  std::cout << "timings from sqpnp_hybrid algorithm: ";
-  std::cout << sqpnp_hybrid_time << std::endl;
   std::cout << "timings for the upnp algorithm: ";
   std::cout << upnp_time << std::endl;
   std::cout << "timings from nonlinear algorithm: ";

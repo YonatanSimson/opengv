@@ -127,7 +127,7 @@ void test_varying_backward_ratio() {
         }
 
         DiagnosticAdapter adapter(bearingVectors, points);
-        transformation_t T_sqpnp = absolute_pose::sqpnp_hybrid(adapter);
+        transformation_t T_sqpnp = absolute_pose::sqpnp(adapter);
 
         double pos_error = (T_sqpnp.col(3) - position).norm();
         double rot_error = computeRotationError(T_sqpnp.block<3,3>(0,0), rotation);
@@ -172,7 +172,7 @@ void test_extreme_edge_cases() {
         DiagnosticAdapter adapter(bearingVectors, points);
         adapter.analyzeBearingVectors();
 
-        transformation_t T_sqpnp = absolute_pose::sqpnp_hybrid(adapter);
+        transformation_t T_sqpnp = absolute_pose::sqpnp(adapter);
 
         double pos_error = (T_sqpnp.col(3) - position).norm();
         double rot_error = computeRotationError(T_sqpnp.block<3,3>(0,0), rotation);
