@@ -311,6 +311,12 @@ IF (BUILD_TESTS)
     WORKING_DIRECTORY ${EXECUTABLE_OUTPUT_PATH}
     COMMAND test_sqpnp_hybrid_benchmark)
 
+  add_executable( test_p3p_backward_vectors test/test_p3p_backward_vectors.cpp )
+  target_link_libraries( test_p3p_backward_vectors opengv )
+  add_test(NAME test_p3p_backward_vectors
+    WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
+    COMMAND test_p3p_backward_vectors)
+
   add_executable( test_absolute_pose_sac test/test_absolute_pose_sac.cpp )
   target_link_libraries( test_absolute_pose_sac opengv random_generators )
   add_test(NAME test_absolute_pose_sac
