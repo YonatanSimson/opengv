@@ -59,7 +59,8 @@ echo ""
 # Step 5: Run Python tests
 echo "Step 5: Running Python tests..."
 echo "--------------------------------"
-python3 python/run_all_tests.py
+pip install pytest
+pytest python/ -v
 echo "[OK] Python tests completed"
 echo ""
 

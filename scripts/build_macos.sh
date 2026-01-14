@@ -1,9 +1,9 @@
 #!/bin/bash
-# Build script for Ubuntu 24.04 - mirrors the GitHub Actions CI workflow
-# Usage: ./scripts/build_ubuntu24.04.sh
+# Build script for macOS - mirrors the GitHub Actions CI workflow
+# Usage: ./scripts/build_macos.sh
 #
-# This script performs the exact same steps as the build-and-test-ubuntu workflow
-# adapted for Ubuntu 24.04 (which uses Python 3.12 by default)
+# This script performs the exact same steps as the build-and-test-macos workflow
+# Compatible with both Intel (x86_64) and Apple Silicon (ARM64) Macs
 
 set -e  # Exit on any error
 
@@ -11,23 +11,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/.."
 
 echo "========================================"
-echo "OpenGV Ubuntu 24.04 Build"
+echo "OpenGV macOS Build"
 echo "========================================"
+echo ""
+echo "Architecture: $(uname -m)"
+echo "macOS version: $(sw_vers -productVersion)"
 echo ""
 
 # Step 1: Install dependencies
-echo "Step 1: Installing system dependencies..."
-echo "----------------------------------------"
-sudo apt-get update
-sudo apt-get install -y \
-    cmake \
-    build-essential \
-    libeigen3-dev \
-    python3-dev \
-    python3-pip \
-    python3-venv \
-    pybind11-dev
-echo "[OK] System dependencies installed"
+echo "Step 1: Installing dependencies via Homebrew..."
+echo "-----------------------------------------------"
+if ! command -v brew &> /dev/null; then
+    echo "ERROR: Homebrew not found. Please install from https://brew.sh"
+    exit 1
+fi
+
+brew install cmake eigen pybind11
+echo "[OK] Dependencies installed"
 echo ""
 
 # Step 2: Configure CMake (with Python and tests)
@@ -37,6 +37,7 @@ rm -rf build
 mkdir -p build
 cd build
 cmake .. \
+    -DCMAKE_CXX_STANDARD=14 \
     -DBUILD_TESTS=ON \
     -DBUILD_PYTHON=ON \
     -DPYTHON_EXECUTABLE=$(which python3)
@@ -46,7 +47,7 @@ echo ""
 # Step 3: Build everything (C++ and Python)
 echo "Step 3: Building (C++ and Python)..."
 echo "-------------------------------------"
-make -j$(nproc)
+make -j$(sysctl -n hw.ncpu)
 echo "[OK] Build completed"
 echo ""
 
@@ -63,6 +64,7 @@ echo "------------------------------------------------"
 cd ..
 python3 -m venv .venv
 source .venv/bin/activate
+pip install --upgrade pip
 pip install numpy pytest
 PYTHONPATH=build/lib pytest python/ -v
 echo "[OK] Python tests completed"
@@ -75,7 +77,7 @@ pip install wheel build
 rm -rf dist
 pip wheel . --no-deps -w dist/
 
-if [ -f dist/pyopengv-*.whl ]; then
+if ls dist/pyopengv-*.whl 1> /dev/null 2>&1; then
     echo "[OK] Wheel built successfully"
     ls -lh dist/
 else
@@ -95,10 +97,13 @@ echo "[OK] Wheel installation and tests passed"
 echo ""
 
 echo "========================================"
-echo "Ubuntu 24.04 build completed successfully!"
+echo "macOS build completed successfully!"
 echo "========================================"
 echo ""
 echo "Outputs:"
 echo "  C++ library: build/lib/libopengv.a"
 echo "  Python module: build/lib/pyopengv.*.so"
 echo "  Wheel: dist/pyopengv-*.whl"
+echo ""
+echo "To test Python module:"
+echo "  python3 -c 'import pyopengv; print(\"✓ Success\")'"

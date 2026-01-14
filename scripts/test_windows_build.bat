@@ -66,7 +66,8 @@ echo.
 echo Step 5: Testing Python module...
 cd ..
 set PYTHONPATH=%CD%\build\lib\Release
-python python\run_all_tests.py
+pip install pytest >nul 2>&1
+pytest python\ -v
 if %errorlevel% neq 0 (
     echo [WARN] Some Python tests failed
 ) else (

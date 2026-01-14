@@ -62,8 +62,8 @@ echo "---------------------------------"
 cd ..
 python3 -m venv .venv
 source .venv/bin/activate
-pip install numpy
-PYTHONPATH=build/lib python3 python/run_all_tests.py
+pip install numpy pytest
+PYTHONPATH=build/lib pytest python/ -v
 echo "[OK] Python tests completed"
 echo ""
 
