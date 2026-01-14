@@ -23,7 +23,7 @@ cd build
 
 echo.
 echo Step 1: Configuring CMake...
-cmake .. -DBUILD_PYTHON=ON -DBUILD_TESTS=ON -A x64
+cmake .. -DBUILD_PYTHON=ON -DBUILD_TESTS=ON -A x64 -DCMAKE_CXX_FLAGS="/MP /EHsc" 
 if %errorlevel% neq 0 (
     echo ERROR: CMake configuration failed
     exit /b 1
@@ -61,6 +61,18 @@ if exist lib\Release\pyopengv.pyd (
 ) else (
     echo [WARN] pyopengv.pyd not found in lib\Release
 )
+
+echo.
+echo Step 5: Testing Python module...
+cd ..
+set PYTHONPATH=%CD%\build\lib\Release
+python python\run_all_tests.py
+if %errorlevel% neq 0 (
+    echo [WARN] Some Python tests failed
+) else (
+    echo [OK] All Python tests passed
+)
+cd build
 
 echo.
 echo =============================

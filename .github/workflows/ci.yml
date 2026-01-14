@@ -101,12 +101,12 @@ jobs:
         python3 -m venv .venv
         source .venv/bin/activate
         pip install --upgrade pip
-        pip install numpy pybind11 wheel build
+        pip install numpy wheel build
 
     - name: Build wheel
       run: |
         source .venv/bin/activate
-        pip wheel . --no-deps --no-build-isolation -w dist/
+        pip wheel . --no-deps -w dist/
 
     - name: Install wheel
       run: |
@@ -169,12 +169,12 @@ jobs:
     - name: Create virtual environment for wheel
       run: |
         source .venv/bin/activate
-        pip install --upgrade pip pybind11 wheel build
+        pip install --upgrade pip wheel build
 
     - name: Build and test wheel
       run: |
         source .venv/bin/activate
-        pip wheel . --no-deps --no-build-isolation -w dist/
+        pip wheel . --no-deps -w dist/
         pip install dist/pyopengv-*.whl
         python3 python/run_all_tests.py
 
@@ -227,6 +227,7 @@ jobs:
           -DPython3_FIND_VERSION=3.11 `
           -DPython3_FIND_VERSION_MAJOR=3 `
           -DPython3_FIND_VERSION_MINOR=11 `
+          -DCMAKE_CXX_FLAGS="/MP /EHsc" `
           -A x64
 
     - name: Build everything (C++ and Python)
@@ -341,6 +342,7 @@ jobs:
           -DPYTHON_EXECUTABLE="$pythonExe" `
           -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake `
           -DCMAKE_VERBOSE_MAKEFILE=ON `
+          -DCMAKE_CXX_FLAGS="/MP /EHsc" `
           -A x64
 
     - name: Build everything (C++ and Python)

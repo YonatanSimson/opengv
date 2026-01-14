@@ -148,7 +148,7 @@ int main( int argc, char** argv )
   double outlierFraction = 0.0;
   size_t numberPoints = 200;  // Increased from 100 to reduce ambiguity
   
-  // Panorama image dimensions (typical 360° camera)
+  // Panorama image dimensions (typical 360-degree camera)
   int panoramaWidth = 1920;
   int panoramaHeight = 960;
   
@@ -160,7 +160,7 @@ int main( int argc, char** argv )
   // In practice, you would transform ENU rays to camera frame using camera rotation
   rotation_t rotation = Eigen::Matrix3d::Identity();  // Camera frame = ENU frame
   
-  // Generate random 3D points uniformly distributed across the full 360° panorama sphere
+  // Generate random 3D points uniformly distributed across the full 360-degree panorama sphere
   // This ensures uniform coverage in azimuth and elevation (equirectangular space)
   points_t points;
   
@@ -170,7 +170,7 @@ int main( int argc, char** argv )
   for(size_t i = 0; i < numberPoints; i++)
   {
     // Generate uniform distribution in spherical coordinates
-    // Azimuth: uniform in [-π, π] (full 360°)
+    // Azimuth: uniform in [-π, π] (full 360-degree)
     double azimuth = ((double)rand() / RAND_MAX) * 2.0 * M_PI - M_PI;
     
     // Elevation: uniform in [-π/2, π/2] (full vertical range)
@@ -190,7 +190,7 @@ int main( int argc, char** argv )
   }
   
   std::cout << std::endl << "Generated " << numberPoints 
-            << " random 3D points uniformly distributed across full 360° panorama sphere" << std::endl;
+            << " random 3D points uniformly distributed across full 360-degree panorama sphere" << std::endl;
   std::cout << "Panorama dimensions: " << panoramaWidth 
             << " x " << panoramaHeight << " (equirectangular projection)" << std::endl;
   
@@ -271,11 +271,11 @@ int main( int argc, char** argv )
                 << bodyPoint[1] << ", " << bodyPoint[2] << "]" << std::endl;
       std::cout << "  Panorama pixel: (" << (int)u << ", " << (int)v << ")" << std::endl;
       std::cout << "  Spherical: azimuth=" << azimuth*180.0/M_PI 
-                << "°, elevation=" << elevation*180.0/M_PI << "°" << std::endl;
+                << " deg, elevation=" << elevation*180.0/M_PI << " deg" << std::endl;
       std::cout << "  ENU ray: [" << enuRay[0] << ", " << enuRay[1] << ", " << enuRay[2] << "]" << std::endl;
       std::cout << "  Expected ray (camera frame): [" << expectedRay[0] << ", " 
                 << expectedRay[1] << ", " << expectedRay[2] << "]" << std::endl;
-      std::cout << "  Conversion angle error: " << angleError*180.0/M_PI << "°" << std::endl;
+      std::cout << "  Conversion angle error: " << angleError*180.0/M_PI << " deg" << std::endl;
     }
     
     // Use the ENU ray as bearing vector (assuming camera frame = ENU frame)
@@ -285,12 +285,12 @@ int main( int argc, char** argv )
   
   // Print distribution statistics
   std::cout << std::endl << "Point distribution statistics:" << std::endl;
-  std::cout << "  Azimuth range: " << minAzimuth*180.0/M_PI << "° to " 
-            << maxAzimuth*180.0/M_PI << "° (span: " 
-            << (maxAzimuth - minAzimuth)*180.0/M_PI << "°)" << std::endl;
-  std::cout << "  Elevation range: " << minElevation*180.0/M_PI << "° to " 
-            << maxElevation*180.0/M_PI << "° (span: " 
-            << (maxElevation - minElevation)*180.0/M_PI << "°)" << std::endl;
+  std::cout << "  Azimuth range: " << minAzimuth*180.0/M_PI << " deg to " 
+            << maxAzimuth*180.0/M_PI << " deg (span: " 
+            << (maxAzimuth - minAzimuth)*180.0/M_PI << " deg)" << std::endl;
+  std::cout << "  Elevation range: " << minElevation*180.0/M_PI << " deg to " 
+            << maxElevation*180.0/M_PI << " deg (span: " 
+            << (maxElevation - minElevation)*180.0/M_PI << " deg)" << std::endl;
   
   std::cout << std::endl << "==================================================" << std::endl;
   std::cout << "Running SQPnP with ENU bearing vectors from panorama" << std::endl;
@@ -342,7 +342,7 @@ int main( int argc, char** argv )
   std::cout << "Angular error: " << angular_error << " rad (" << angular_error * 180.0 / M_PI << " deg)" << std::endl;
   
   std::cout << std::endl << "==================================================" << std::endl;
-  std::cout << "Summary: SQPnP with panorama 360° bearing vectors" << std::endl;
+  std::cout << "Summary: SQPnP with panorama 360-degree bearing vectors" << std::endl;
   std::cout << "Position error: " << position_error << std::endl;
   std::cout << "Angular error: " << angular_error << " rad" << std::endl;
   std::cout << "==================================================" << std::endl;

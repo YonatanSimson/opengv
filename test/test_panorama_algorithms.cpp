@@ -78,6 +78,7 @@ bearingVector_t panoramaPixelToENURay(
  */
 double addGaussianNoise(double value, double stddev)
 {
+  if (stddev <= 0.0) return value;  // No noise if stddev is zero or negative
   std::normal_distribution<double> dist(0.0, stddev);
   return value + dist(gen);
 }
@@ -340,7 +341,7 @@ void runNoiseTest(
   }
   
   // Validate EPnP accuracy based on noise level
-  // NOTE: EPnP performs poorly on panoramic/360° data compared to UPnP
+  // NOTE: EPnP performs poorly on panoramic/360-degree data compared to UPnP
   // We use lenient thresholds here because EPnP has high variance on panoramic views
   double avg_epnp_position_error = epnp_position_error_sum / numberOfRuns;
   double avg_epnp_rotation_error = epnp_rotation_error_sum / numberOfRuns;
@@ -355,22 +356,22 @@ void runNoiseTest(
     // With outliers: EPnP is NOT outlier-robust and fails badly
     // Can have 10m+ errors - use very lenient threshold
     position_threshold = 15.0;
-    rotation_threshold = 1.5;  // rad (~86°) - EPnP can fail completely with outliers
+    rotation_threshold = 1.5;  // rad (~86 deg) - EPnP can fail completely with outliers
   } else if (pixelNoiseStd > 0.0 && pointNoiseStd > 0.0) {
     // Combined noise: EPnP struggles on panoramic
     position_threshold = 2.0;
-    rotation_threshold = 0.3;  // rad (~17°)
+    rotation_threshold = 0.3;  // rad (~17 deg)
   } else if (pixelNoiseStd > 0.0) {
     // Pixel noise on panorama: EPnP has high variance
     position_threshold = 2.0;
-    rotation_threshold = 0.2;  // rad (~11.5°)
+    rotation_threshold = 0.2;  // rad (~11.5 deg)
   } else {
     // 3D point noise only: EPnP struggles with rotation
     position_threshold = 0.3;
-    rotation_threshold = 0.2;  // rad (~11.5°)
+    rotation_threshold = 0.2;  // rad (~11.5 deg)
   }
   
-  std::cout << std::endl << "Validation (EPnP thresholds - lenient for 360°: pos=" << position_threshold 
+  std::cout << std::endl << "Validation (EPnP thresholds - lenient for 360 deg: pos=" << position_threshold 
             << " m, rot=" << rotation_threshold << " rad):" << std::endl;
   
   if (avg_epnp_position_error > position_threshold) {
@@ -395,7 +396,7 @@ int main( int argc, char** argv )
   
   std::cout << "==================================================" << std::endl;
   std::cout << "Panorama Algorithm Comparison: UPnP vs EPnP vs SQPnP" << std::endl;
-  std::cout << "Full 360° equirectangular panorama test" << std::endl;
+  std::cout << "Full 360-degree equirectangular panorama test" << std::endl;
   std::cout << "==================================================" << std::endl;
   
   // Test parameters

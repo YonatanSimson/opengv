@@ -285,7 +285,7 @@ int main( int argc, char** argv )
   else
     std::cout << "Mixed results: one method better for position, other for rotation." << std::endl;
   
-  std::cout << std::endl << "Note: For omnidirectional/panorama cameras with 360° bearing" << std::endl;
+  std::cout << std::endl << "Note: For omnidirectional/panorama cameras with 360-degree bearing" << std::endl;
   std::cout << "vectors, SQPNP refinement is preferred as it properly handles" << std::endl;
   std::cout << "full 3D bearing vectors (LM uses perspective reprojection error)." << std::endl;
   std::cout << std::endl;

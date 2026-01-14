@@ -91,7 +91,7 @@ int main(int argc, char** argv) {
     cout << "  Solution " << i << ": "
          << "pos_err=" << scientific << setprecision(2) << pos_err << " m, "
          << "rot_err=" << scientific << setprecision(2) << rot_err << " rad ("
-         << fixed << setprecision(3) << (rot_err * 180.0 / M_PI) << "°)" << endl;
+         << fixed << setprecision(3) << (rot_err * 180.0 / M_PI) << " deg)" << endl;
 
     if(pos_err < 1e-6 && rot_err < 1e-6) {
       cout << "    -> CORRECT SOLUTION" << endl;
@@ -121,7 +121,7 @@ int main(int argc, char** argv) {
     cout << "  Solution " << i << ": "
          << "pos_err=" << scientific << setprecision(2) << pos_err << " m, "
          << "rot_err=" << scientific << setprecision(2) << rot_err << " rad ("
-         << fixed << setprecision(3) << (rot_err * 180.0 / M_PI) << "°)" << endl;
+         << fixed << setprecision(3) << (rot_err * 180.0 / M_PI) << " deg)" << endl;
 
     if(pos_err < 1e-6 && rot_err < 1e-6) {
       cout << "    -> CORRECT SOLUTION" << endl;
