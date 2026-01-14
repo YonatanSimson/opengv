@@ -23,7 +23,7 @@ cd build
 
 echo.
 echo Step 1: Configuring CMake...
-cmake .. -DBUILD_PYTHON=ON -DBUILD_TESTS=OFF -A x64
+cmake .. -DBUILD_PYTHON=ON -DBUILD_TESTS=ON -A x64
 if %errorlevel% neq 0 (
     echo ERROR: CMake configuration failed
     exit /b 1
@@ -40,7 +40,16 @@ if %errorlevel% neq 0 (
 echo [OK] Build completed successfully
 
 echo.
-echo Step 3: Checking outputs...
+echo Step 3: Running C++ tests...
+ctest -C Release --output-on-failure
+if %errorlevel% neq 0 (
+    echo [WARN] Some C++ tests failed
+) else (
+    echo [OK] All C++ tests passed
+)
+
+echo.
+echo Step 4: Checking outputs...
 if exist lib\Release\opengv.lib (
     echo [OK] Found: lib\Release\opengv.lib
 ) else (

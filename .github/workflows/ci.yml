@@ -101,12 +101,12 @@ jobs:
         python3 -m venv .venv
         source .venv/bin/activate
         pip install --upgrade pip
-        pip install numpy wheel build
+        pip install numpy pybind11 wheel build
 
     - name: Build wheel
       run: |
         source .venv/bin/activate
-        pip wheel . --no-deps -w dist/
+        pip wheel . --no-deps --no-build-isolation -w dist/
 
     - name: Install wheel
       run: |
@@ -169,12 +169,12 @@ jobs:
     - name: Create virtual environment for wheel
       run: |
         source .venv/bin/activate
-        pip install --upgrade pip wheel build
+        pip install --upgrade pip pybind11 wheel build
 
     - name: Build and test wheel
       run: |
         source .venv/bin/activate
-        pip wheel . --no-deps -w dist/
+        pip wheel . --no-deps --no-build-isolation -w dist/
         pip install dist/pyopengv-*.whl
         python3 python/run_all_tests.py
 
@@ -360,11 +360,11 @@ jobs:
 
     - name: Install wheel build tools
       run: |
-        pip install wheel build
+        pip install wheel build numpy pybind11
 
     - name: Build wheel
       run: |
-        pip wheel . --no-deps -w dist\
+        pip wheel . --no-deps --no-build-isolation -w dist\
 
     - name: Install and test wheel
       run: |
@@ -456,7 +456,7 @@ jobs:
     - name: Build wheel
       run: |
         pip install wheel build
-        pip wheel . --no-deps -w dist\
+        pip wheel . --no-deps --no-build-isolation -w dist\
 
     - name: Install and test wheel
       run: |

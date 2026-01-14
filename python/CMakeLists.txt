@@ -29,7 +29,22 @@ if(PYTHON_EXECUTABLE)
   unset(Python3_INCLUDE_DIRS CACHE)
 endif()
 
-# Find pybind11 - it can be installed via conda, vcpkg, or as a submodule
+# Find pybind11 - it can be installed via conda, vcpkg, pip, or as a submodule
+# First, try to find pybind11 via Python (for pip installs in isolated build environments)
+if(PYTHON_EXECUTABLE AND NOT pybind11_FOUND)
+  execute_process(
+    COMMAND "${PYTHON_EXECUTABLE}" -c "import pybind11; print(pybind11.get_cmake_dir())"
+    OUTPUT_VARIABLE PYBIND11_CMAKE_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+    RESULT_VARIABLE PYBIND11_PYTHON_RESULT
+  )
+  if(PYBIND11_PYTHON_RESULT EQUAL 0 AND EXISTS "${PYBIND11_CMAKE_DIR}")
+    message(STATUS "Found pybind11 via Python at: ${PYBIND11_CMAKE_DIR}")
+    list(APPEND CMAKE_PREFIX_PATH "${PYBIND11_CMAKE_DIR}")
+  endif()
+endif()
+
 find_package(pybind11 QUIET)
 if(NOT pybind11_FOUND)
   # Try to find pybind11 as a submodule
