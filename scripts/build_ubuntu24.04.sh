@@ -30,8 +30,19 @@ sudo apt-get install -y \
 echo "[OK] System dependencies installed"
 echo ""
 
-# Step 2: Configure CMake (with Python and tests)
-echo "Step 2: Configuring CMake..."
+# Step 2: Create virtual environment and install Python dependencies
+echo "Step 2: Setting up Python environment..."
+echo "-----------------------------------------"
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install --no-build-isolation -e ".[dev]"
+pip install wheel build
+echo "[OK] Python dependencies installed from pyproject.toml"
+echo ""
+
+# Step 3: Configure CMake (with Python and tests)
+echo "Step 3: Configuring CMake..."
 echo "----------------------------"
 rm -rf build
 mkdir -p build
@@ -43,35 +54,31 @@ cmake .. \
 echo "[OK] CMake configured"
 echo ""
 
-# Step 3: Build everything (C++ and Python)
-echo "Step 3: Building (C++ and Python)..."
+# Step 4: Build everything (C++ and Python)
+echo "Step 4: Building (C++ and Python)..."
 echo "-------------------------------------"
 make -j$(nproc)
 echo "[OK] Build completed"
 echo ""
 
-# Step 4: Run C++ tests
-echo "Step 4: Running C++ tests..."
+# Step 5: Run C++ tests
+echo "Step 5: Running C++ tests..."
 echo "----------------------------"
 ctest --output-on-failure
 echo "[OK] C++ tests completed"
 echo ""
 
-# Step 5: Test Python module (direct build)
-echo "Step 5: Testing Python module (direct build)..."
+# Step 6: Test Python module (direct build)
+echo "Step 6: Testing Python module (direct build)..."
 echo "------------------------------------------------"
 cd ..
-python3 -m venv .venv
-source .venv/bin/activate
-pip install numpy pytest
 PYTHONPATH=build/lib pytest python/ -v
 echo "[OK] Python tests completed"
 echo ""
 
-# Step 6: Build wheel
-echo "Step 6: Building wheel..."
+# Step 7: Build wheel
+echo "Step 7: Building wheel..."
 echo "-------------------------"
-pip install wheel build
 rm -rf dist
 pip wheel . --no-deps -w dist/
 
@@ -84,8 +91,8 @@ else
 fi
 echo ""
 
-# Step 7: Install and test wheel
-echo "Step 7: Testing wheel installation..."
+# Step 8: Install and test wheel
+echo "Step 8: Testing wheel installation..."
 echo "--------------------------------------"
 # Unset PYTHONPATH to test clean wheel install
 unset PYTHONPATH

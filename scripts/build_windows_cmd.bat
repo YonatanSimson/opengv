@@ -1,13 +1,14 @@
 @echo off
-REM Quick test script to verify Windows build works
-REM Usage: scripts\test_windows_build.bat
+REM Build script for Windows using MSVC (cmd.exe)
+REM Usage: scripts\build_windows_cmd.bat
 
 setlocal enabledelayedexpansion
 
 cd /d "%~dp0\.."
 
-echo Testing OpenGV Windows Build
-echo =============================
+echo ========================================
+echo OpenGV Windows Build (MSVC)
+echo ========================================
 
 REM Activate conda environment
 call conda activate opengv
@@ -15,15 +16,23 @@ if %errorlevel% neq 0 (
     echo ERROR: Failed to activate conda environment
     exit /b 1
 )
+echo [OK] Conda environment activated
 
-REM Clean previous build
+echo.
+echo Step 1: Installing Python dependencies from pyproject.toml...
+pip install --no-build-isolation -e ".[dev]" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ERROR: Failed to install Python dependencies
+    exit /b 1
+)
+echo [OK] Python dependencies installed
+
+echo.
+echo Step 2: Configuring CMake...
 if exist build rmdir /s /q build
 mkdir build
 cd build
-
-echo.
-echo Step 1: Configuring CMake...
-cmake .. -DBUILD_PYTHON=ON -DBUILD_TESTS=ON -A x64 -DCMAKE_CXX_FLAGS="/MP /EHsc" 
+cmake .. -DBUILD_PYTHON=ON -DBUILD_TESTS=ON -A x64 -DCMAKE_CXX_FLAGS="/MP /EHsc"
 if %errorlevel% neq 0 (
     echo ERROR: CMake configuration failed
     exit /b 1
@@ -31,7 +40,7 @@ if %errorlevel% neq 0 (
 echo [OK] CMake configured successfully
 
 echo.
-echo Step 2: Building (Release, parallel)...
+echo Step 3: Building (Release, parallel)...
 cmake --build . --config Release --parallel
 if %errorlevel% neq 0 (
     echo ERROR: Build failed
@@ -40,8 +49,8 @@ if %errorlevel% neq 0 (
 echo [OK] Build completed successfully
 
 echo.
-echo Step 3: Running C++ tests...
-ctest -C Release --output-on-failure
+echo Step 4: Running C++ tests (verbose for debugging)...
+ctest -C Release --output-on-failure --verbose
 if %errorlevel% neq 0 (
     echo [WARN] Some C++ tests failed
 ) else (
@@ -49,7 +58,7 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo Step 4: Checking outputs...
+echo Step 5: Checking outputs...
 if exist lib\Release\opengv.lib (
     echo [OK] Found: lib\Release\opengv.lib
 ) else (
@@ -63,21 +72,19 @@ if exist lib\Release\pyopengv.pyd (
 )
 
 echo.
-echo Step 5: Testing Python module...
+echo Step 6: Testing Python module...
 cd ..
 set PYTHONPATH=%CD%\build\lib\Release
-pip install pytest >nul 2>&1
 pytest python\ -v
 if %errorlevel% neq 0 (
     echo [WARN] Some Python tests failed
 ) else (
     echo [OK] All Python tests passed
 )
-cd build
 
 echo.
-echo =============================
-echo Windows build test completed!
-echo =============================
+echo ========================================
+echo Windows build completed!
+echo ========================================
 
 endlocal

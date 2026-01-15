@@ -55,12 +55,14 @@ fi
 echo "[OK] vcpkg dependencies installed"
 echo ""
 
-# Step 2: Install Python dependencies
+# Step 2: Install Python dependencies from pyproject.toml
 echo "Step 2: Installing Python dependencies..."
 echo "-----------------------------------------"
 python -m pip install --upgrade pip --quiet
-pip install numpy pybind11 --quiet
-echo "[OK] Python dependencies installed"
+pip install pybind11 --quiet
+pip install --no-build-isolation -e ".[dev]" --quiet
+pip install wheel build --quiet
+echo "[OK] Python dependencies installed from pyproject.toml"
 echo ""
 
 # Step 3: Configure CMake with Clang and Ninja
@@ -107,7 +109,6 @@ echo "Step 6: Testing Python module (direct build)..."
 echo "------------------------------------------------"
 cd ..
 export PYTHONPATH="$PWD/build_clang/lib"
-pip install pytest --quiet
 pytest python/ -v
 
 if [ $? -eq 0 ]; then
@@ -120,7 +121,6 @@ echo ""
 # Step 7: Build wheel
 echo "Step 7: Building wheel..."
 echo "-------------------------"
-pip install wheel build --quiet
 rm -rf dist
 pip wheel . --no-deps --no-build-isolation -w dist/
 

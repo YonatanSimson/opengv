@@ -29,15 +29,16 @@ sudo apt-get install -y \
 echo "[OK] System dependencies installed"
 echo ""
 
-# Step 2: Create virtual environment
-echo "Step 2: Creating Python virtual environment..."
-echo "-----------------------------------------------"
+# Step 2: Create virtual environment and install Python dependencies
+echo "Step 2: Setting up Python environment..."
+echo "-----------------------------------------"
 rm -rf .venv
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
-pip install numpy pybind11 wheel build
-echo "[OK] Virtual environment created and packages installed"
+pip install --no-build-isolation -e ".[dev]"
+pip install wheel build
+echo "[OK] Python dependencies installed from pyproject.toml"
 echo ""
 
 # Step 3: Build wheel
@@ -49,23 +50,16 @@ echo "[OK] Wheel built successfully"
 ls -la dist/
 echo ""
 
-# Step 4: Install wheel
-echo "Step 4: Installing wheel..."
-echo "---------------------------"
+# Step 4: Install wheel and test
+echo "Step 4: Installing wheel and running tests..."
+echo "----------------------------------------------"
 pip install dist/pyopengv-*.whl
-echo "[OK] Wheel installed"
-echo ""
-
-# Step 5: Run Python tests
-echo "Step 5: Running Python tests..."
-echo "--------------------------------"
-pip install pytest
 pytest python/ -v
-echo "[OK] Python tests completed"
+echo "[OK] Wheel installed and Python tests completed"
 echo ""
 
-# Step 6: Build with CMake for C++ tests (optional, not in wheel workflow)
-echo "Step 6: Building C++ tests (CMake)..."
+# Step 5: Build with CMake for C++ tests
+echo "Step 5: Building C++ tests (CMake)..."
 echo "--------------------------------------"
 rm -rf build
 mkdir -p build
@@ -78,8 +72,8 @@ cmake --build . --parallel
 echo "[OK] C++ build completed"
 echo ""
 
-# Step 7: Run C++ tests
-echo "Step 7: Running C++ tests..."
+# Step 6: Run C++ tests
+echo "Step 6: Running C++ tests..."
 echo "----------------------------"
 ctest --output-on-failure
 echo "[OK] C++ tests completed"

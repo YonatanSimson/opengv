@@ -50,7 +50,7 @@ jobs:
         cd ${{ github.workspace }}
         python3 -m venv .venv
         source .venv/bin/activate
-        pip install numpy pytest
+        pip install --no-build-isolation -e ".[dev]"
         PYTHONPATH=build/lib pytest python/ -v
 
   test-conda-environment:
@@ -96,27 +96,18 @@ jobs:
           python3-venv \
           pybind11-dev
 
-    - name: Create virtual environment
+    - name: Create virtual environment and build wheel
       run: |
         python3 -m venv .venv
         source .venv/bin/activate
-        pip install --upgrade pip
-        pip install numpy wheel build
-
-    - name: Build wheel
-      run: |
-        source .venv/bin/activate
+        pip install --upgrade pip wheel build
         pip wheel . --no-deps -w dist/
 
-    - name: Install wheel
+    - name: Install and test wheel
       run: |
         source .venv/bin/activate
         pip install dist/pyopengv-*.whl
-
-    - name: Test installed wheel
-      run: |
-        source .venv/bin/activate
-        pip install pytest
+        pip install --no-build-isolation -e ".[dev]"
         pytest python/ -v
 
     - name: Upload wheel artifact
@@ -164,20 +155,15 @@ jobs:
         cd ${{ github.workspace }}
         python3 -m venv .venv
         source .venv/bin/activate
-        pip install numpy pytest
+        pip install --no-build-isolation -e ".[dev]"
         PYTHONPATH=build/lib pytest python/ -v
-
-    - name: Create virtual environment for wheel
-      run: |
-        source .venv/bin/activate
-        pip install --upgrade pip wheel build
 
     - name: Build and test wheel
       run: |
         source .venv/bin/activate
+        pip install --upgrade pip wheel build
         pip wheel . --no-deps -w dist/
         pip install dist/pyopengv-*.whl
-        pip install pytest
         pytest python/ -v
 
     - name: Upload wheel artifact
@@ -251,27 +237,16 @@ jobs:
       run: |
         conda activate opengv
         $env:PYTHONPATH="$PWD\build\lib\Release"
-        pip install pytest
+        pip install --no-build-isolation -e ".[dev]"
         pytest python\ -v
 
-    - name: Install wheel build tools
+    - name: Build and test wheel
       shell: powershell
       run: |
         conda activate opengv
         pip install wheel build
-
-    - name: Build wheel
-      shell: powershell
-      run: |
-        conda activate opengv
         pip wheel . --no-deps -w dist\
-
-    - name: Install and test wheel
-      shell: powershell
-      run: |
-        conda activate opengv
         pip install dist\pyopengv-*.whl
-        pip install pytest
         pytest python\ -v
 
     - name: Upload wheel artifact
@@ -355,18 +330,14 @@ jobs:
       shell: bash
       run: |
         export PYTHONPATH="$PWD/build/lib"
-        pip install pytest
+        pip install --no-build-isolation -e ".[dev]"
         pytest python/ -v
 
-    - name: Build wheel
+    - name: Build and test wheel
       run: |
         pip install wheel build
         pip wheel . --no-deps --no-build-isolation -w dist\
-
-    - name: Install and test wheel
-      run: |
         pip install dist\pyopengv-*.whl
-        pip install pytest
         pytest python\ -v
 
     - name: Upload wheel artifact
