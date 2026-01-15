@@ -49,12 +49,14 @@ opengv::absolute_pose::modules::Sqpnp::Sqpnp(void)
   us = 0;
   alphas = 0;
   pcs = 0;
-  signs = 0;
 
   this->uc = 0.0;
   this->vc = 0.0;
   this->fu = 1.0;
   this->fv = 1.0;
+  
+  // Default: hybrid mode OFF (pure SQPnP only)
+  this->use_hybrid_mode = false;
 }
 
 opengv::absolute_pose::modules::Sqpnp::~Sqpnp()
@@ -63,7 +65,6 @@ opengv::absolute_pose::modules::Sqpnp::~Sqpnp()
   delete [] us;
   delete [] alphas;
   delete [] pcs;
-  delete [] signs;
 }
 
 void
@@ -76,14 +77,12 @@ opengv::absolute_pose::modules::Sqpnp::
     if (us != 0) delete [] us;
     if (alphas != 0) delete [] alphas;
     if (pcs != 0) delete [] pcs;
-    if (signs != 0) delete [] signs;
 
     maximum_number_of_correspondences = n;
     pws = new double[3 * maximum_number_of_correspondences];
-    us = new double[3 * maximum_number_of_correspondences];  // Changed: store full bearing vectors [x, y, z]
+    us = new double[3 * maximum_number_of_correspondences];
     alphas = new double[4 * maximum_number_of_correspondences];
     pcs = new double[3 * maximum_number_of_correspondences];
-    signs = new int[maximum_number_of_correspondences];
   }
 }
 
@@ -102,29 +101,23 @@ opengv::absolute_pose::modules::Sqpnp::add_correspondence(
     double y,
     double z)
 {
-  pws[3 * number_of_correspondences    ] = X;
-  pws[3 * number_of_correspondences + 1] = Y;
-  pws[3 * number_of_correspondences + 2] = Z;
-
   // Store full normalized bearing vector [x, y, z] instead of [x/z, y/z]
   // Normalize the bearing vector to ensure it's a unit vector
   double norm = sqrt(x*x + y*y + z*z);
   if(norm < EPSILON_ZERO_NORM)
   {
-    // Degenerate case: zero bearing vector, skip
+    // Degenerate case: zero bearing vector, skip this correspondence entirely
     return;
   }
-  
+
+  // Only store data after validation passes
+  pws[3 * number_of_correspondences    ] = X;
+  pws[3 * number_of_correspondences + 1] = Y;
+  pws[3 * number_of_correspondences + 2] = Z;
+
   us[3 * number_of_correspondences    ] = x / norm;
   us[3 * number_of_correspondences + 1] = y / norm;
   us[3 * number_of_correspondences + 2] = z / norm;
-  
-  // Store the sign of z for omnidirectional camera support
-  // This is used in solve_for_sign() to handle backward-facing vectors
-  if(z > 0.0)
-    signs[number_of_correspondences] = 1;
-  else
-    signs[number_of_correspondences] = -1;
 
   number_of_correspondences++;
 }
@@ -281,9 +274,21 @@ opengv::absolute_pose::modules::Sqpnp::compute_pose(
   double sqp_error = sqp_solve(Omega, R_sqp, t_sqp);
   
   // =================================================================
-  // EPnP-BASED FALLBACK (for comparison and robustness)
+  // EPnP-BASED FALLBACK (only if hybrid mode is enabled)
   // =================================================================
-  // Also run the EPnP-based approach as a fallback
+  if (!use_hybrid_mode)
+  {
+    // Pure SQPnP mode: use SQPnP result directly
+    for(int i = 0; i < 3; i++)
+    {
+      for(int j = 0; j < 3; j++)
+        R[i][j] = R_sqp(i, j);
+      t[i] = t_sqp(i);
+    }
+    return sqp_error;
+  }
+  
+  // Hybrid mode: Also run the EPnP-based approach as a fallback
   
   choose_control_points();
   compute_barycentric_coordinates();
@@ -700,7 +705,7 @@ opengv::absolute_pose::modules::Sqpnp::sqp_solve(
   {
     Eigen::Vector3d u_i(us[3*i], us[3*i+1], us[3*i+2]);
     Eigen::Vector3d M_i(pws[3*i], pws[3*i+1], pws[3*i+2]);
-    
+
     Eigen::Vector3d p_cam = R_out * M_i + t_out;
     double norm = p_cam.norm();
     if(norm > EPSILON_ZERO_NORM)
@@ -709,10 +714,10 @@ opengv::absolute_pose::modules::Sqpnp::sqp_solve(
       double cos_angle = u_i.dot(p_dir);
       if(cos_angle > 1.0) cos_angle = 1.0;
       if(cos_angle < -1.0) cos_angle = -1.0;
-      total_error += acos(std::abs(cos_angle));  // Use abs to handle backward-facing
+      total_error += acos(cos_angle);
     }
   }
-  
+
   return total_error / number_of_correspondences;
 }
 
@@ -811,29 +816,6 @@ opengv::absolute_pose::modules::Sqpnp::print_pose(
   cout << R[2][0] << " " << R[2][1] << " " << R[2][2] << " " << t[2] << endl;
 }
 
-void
-opengv::absolute_pose::modules::Sqpnp::solve_for_sign(void)
-{
-  // For omnidirectional cameras, check if the computed camera-frame points
-  // have consistent depth signs with the original bearing vectors
-  // Use the first correspondence as reference (like EPNP)
-  
-  if( (pcs[2] < 0.0 && signs[0] > 0) || (pcs[2] > 0.0 && signs[0] < 0) )
-  {
-    // Sign mismatch - flip all control points and camera-frame points
-    for(int i = 0; i < 4; i++)
-      for(int j = 0; j < 3; j++)
-        ccs[i][j] = -ccs[i][j];
-
-    for(int i = 0; i < number_of_correspondences; i++)
-    {
-      pcs[3 * i    ] = -pcs[3 * i];
-      pcs[3 * i + 1] = -pcs[3 * i + 1];
-      pcs[3 * i + 2] = -pcs[3 * i + 2];
-    }
-  }
-}
-
 double
 opengv::absolute_pose::modules::Sqpnp::compute_R_and_t(
     const Eigen::MatrixXd & Ut,
@@ -843,9 +825,6 @@ opengv::absolute_pose::modules::Sqpnp::compute_R_and_t(
 {
   compute_ccs(betas, Ut);
   compute_pcs();
-
-  // Handle sign for omnidirectional cameras
-  solve_for_sign();
 
   estimate_R_and_t(R, t);
 

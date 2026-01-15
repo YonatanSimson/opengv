@@ -369,6 +369,7 @@ opengv::absolute_pose::sqpnp(
   return sqpnp(adapter,idx);
 }
 
+
 namespace opengv
 {
 namespace absolute_pose

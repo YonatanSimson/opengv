@@ -131,6 +131,7 @@ int main( int argc, char** argv )
   gettimeofday( &toc, 0 );
   double sqpnp_time = TIMETODOUBLE(timeval_minus(toc,tic)) / iterations;
 
+
   std::cout << "running epnp with 6 correspondences" << std::endl;
   std::vector<int> indices6 = getNindices(6);
   transformation_t epnp_transformation_6 =
