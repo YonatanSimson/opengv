@@ -36,9 +36,8 @@ rm -rf .venv
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
-pip install --no-build-isolation -e ".[dev]"
-pip install wheel build
-echo "[OK] Python dependencies installed from pyproject.toml"
+pip install numpy scipy pytest wheel build
+echo "[OK] Python dependencies installed"
 echo ""
 
 # Step 3: Build wheel

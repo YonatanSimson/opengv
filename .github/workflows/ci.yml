@@ -50,7 +50,7 @@ jobs:
         cd ${{ github.workspace }}
         python3 -m venv .venv
         source .venv/bin/activate
-        pip install --no-build-isolation -e ".[dev]"
+        pip install numpy scipy pytest
         PYTHONPATH=build/lib pytest python/ -v
 
   test-conda-environment:
@@ -107,7 +107,7 @@ jobs:
       run: |
         source .venv/bin/activate
         pip install dist/pyopengv-*.whl
-        pip install --no-build-isolation -e ".[dev]"
+        pip install scipy pytest
         pytest python/ -v
 
     - name: Upload wheel artifact
@@ -155,7 +155,7 @@ jobs:
         cd ${{ github.workspace }}
         python3 -m venv .venv
         source .venv/bin/activate
-        pip install --no-build-isolation -e ".[dev]"
+        pip install numpy scipy pytest
         PYTHONPATH=build/lib pytest python/ -v
 
     - name: Build and test wheel
@@ -237,7 +237,7 @@ jobs:
       run: |
         conda activate opengv
         $env:PYTHONPATH="$PWD\build\lib\Release"
-        pip install --no-build-isolation -e ".[dev]"
+        pip install scipy pytest
         pytest python\ -v
 
     - name: Build and test wheel
@@ -330,7 +330,7 @@ jobs:
       shell: bash
       run: |
         export PYTHONPATH="$PWD/build/lib"
-        pip install --no-build-isolation -e ".[dev]"
+        pip install scipy pytest
         pytest python/ -v
 
     - name: Build and test wheel

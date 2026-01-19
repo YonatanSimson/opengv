@@ -19,8 +19,8 @@ if %errorlevel% neq 0 (
 echo [OK] Conda environment activated
 
 echo.
-echo Step 1: Installing Python dependencies from pyproject.toml...
-pip install --no-build-isolation -e ".[dev]" >nul 2>&1
+echo Step 1: Installing Python dependencies...
+pip install numpy scipy pytest >nul 2>&1
 if %errorlevel% neq 0 (
     echo ERROR: Failed to install Python dependencies
     exit /b 1

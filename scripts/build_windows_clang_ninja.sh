@@ -55,14 +55,12 @@ fi
 echo "[OK] vcpkg dependencies installed"
 echo ""
 
-# Step 2: Install Python dependencies from pyproject.toml
+# Step 2: Install Python dependencies (from pyproject.toml deps)
 echo "Step 2: Installing Python dependencies..."
 echo "-----------------------------------------"
 python -m pip install --upgrade pip --quiet
-pip install pybind11 --quiet
-pip install --no-build-isolation -e ".[dev]" --quiet
-pip install wheel build --quiet
-echo "[OK] Python dependencies installed from pyproject.toml"
+pip install pybind11 numpy scipy pytest wheel build --quiet
+echo "[OK] Python dependencies installed"
 echo ""
 
 # Step 3: Configure CMake with Clang and Ninja
@@ -118,36 +116,6 @@ else
 fi
 echo ""
 
-# Step 7: Build wheel
-echo "Step 7: Building wheel..."
-echo "-------------------------"
-rm -rf dist
-pip wheel . --no-deps --no-build-isolation -w dist/
-
-if [ -f dist/pyopengv-*.whl ]; then
-    echo "[OK] Wheel built successfully"
-    ls -lh dist/
-else
-    echo "[ERROR] Wheel build failed"
-    exit 1
-fi
-echo ""
-
-# Step 8: Install and test wheel
-echo "Step 8: Testing wheel installation..."
-echo "--------------------------------------"
-# Unset PYTHONPATH to test clean wheel install
-unset PYTHONPATH
-pip install dist/pyopengv-*.whl --force-reinstall --quiet
-pytest python/ -v
-
-if [ $? -eq 0 ]; then
-    echo "[OK] Wheel installation and tests passed"
-else
-    echo "[WARN] Some wheel tests failed"
-fi
-echo ""
-
 echo "========================================"
 echo "Build and test completed!"
 echo "========================================"
@@ -155,7 +123,6 @@ echo ""
 echo "Outputs:"
 echo "  C++ library: build_clang/lib/opengv.lib"
 echo "  Python module: build_clang/lib/pyopengv.pyd"
-echo "  Wheel: dist/pyopengv-*.whl"
 echo ""
 echo "To test Python module:"
 echo "  python -c 'import pyopengv; print(\"✓ Success\")'"
