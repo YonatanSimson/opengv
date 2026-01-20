@@ -188,66 +188,55 @@ jobs:
         activate-environment: opengv
 
     - name: Verify conda environment
-      shell: powershell
+      shell: bash -el {0}
       run: |
-        conda activate opengv
         conda list
         python --version
         cmake --version
 
     - name: Configure CMake (with Python and tests)
-      shell: powershell
+      shell: bash -el {0}
       run: |
-        conda activate opengv
-        $pythonDir = python -c "import sys; print(sys.prefix)"
-        $pythonLibDir = "$pythonDir\libs"
-        Write-Host "Python directory: $pythonDir"
-        Write-Host "Python lib directory: $pythonLibDir"
-        Write-Host "Python lib files:"
-        Get-ChildItem $pythonLibDir
-        mkdir build
+        pythonDir=$(python -c "import sys; print(sys.prefix)")
+        pythonLibDir="$pythonDir/libs"
+        echo "Python directory: $pythonDir"
+        echo "Python lib directory: $pythonLibDir"
+        echo "Python lib files:"
+        ls -la "$pythonLibDir"
+        mkdir -p build
         cd build
-        cmake .. `
-          -DBUILD_TESTS=ON `
-          -DBUILD_PYTHON=ON `
-          -DPYTHON_EXECUTABLE=python `
-          -DPython3_ROOT_DIR="$pythonDir" `
-          -DPython3_FIND_VERSION=3.11 `
-          -DPython3_FIND_VERSION_MAJOR=3 `
-          -DPython3_FIND_VERSION_MINOR=11 `
-          -DCMAKE_CXX_FLAGS="/MP /EHsc" `
+        cmake .. \
+          -DBUILD_TESTS=ON \
+          -DBUILD_PYTHON=ON \
+          -DPython3_ROOT_DIR="$pythonDir" \
           -A x64
 
     - name: Build everything (C++ and Python)
-      shell: powershell
+      shell: bash -el {0}
       run: |
-        conda activate opengv
         cd build
         cmake --build . --config Release --parallel
 
     - name: Run C++ tests
-      shell: powershell
+      shell: bash -el {0}
       run: |
-        conda activate opengv
         cd build
         ctest -C Release --output-on-failure
 
     - name: Test Python module (direct build)
-      shell: powershell
+      shell: bash -el {0}
       run: |
-        conda activate opengv
-        $env:PYTHONPATH="$PWD\build\lib\Release"
+        export PYTHONPATH="$PWD/build/lib/Release"
         pip install scipy pytest
-        pytest python\ -v
+        pytest python/ -v
 
     - name: Build and test wheel
-      shell: powershell
+      shell: bash -el {0}
       run: |
-        conda activate opengv
         pip install wheel build
-        pip wheel . --no-deps -w dist\
-        pip install dist\pyopengv-*.whl
-        pytest python\ -v
+        pip wheel . --no-deps -w dist/
+        pip install dist/pyopengv-*.whl
+        pytest python/ -v
 
     - name: Upload wheel artifact
       uses: actions/upload-artifact@v4
@@ -334,10 +323,12 @@ jobs:
         pytest python/ -v
 
     - name: Build and test wheel
+      shell: powershell
       run: |
         pip install wheel build
         pip wheel . --no-deps --no-build-isolation -w dist\
-        pip install dist\pyopengv-*.whl
+        $wheel = Get-ChildItem -Path dist\pyopengv-*.whl | Select-Object -First 1
+        pip install $wheel.FullName
         pytest python\ -v
 
     - name: Upload wheel artifact
