@@ -261,6 +261,7 @@ transformation_t sqpnp(
     const AbsoluteAdapterBase & adapter,
     const std::vector<int> & indices );
 
+
 /**
  * \brief Compute the pose of a non-central viewpoint using the gPnP method [3].
  *        Using all available correspondences.

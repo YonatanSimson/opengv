@@ -13,8 +13,6 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      with:
-        submodules: recursive
 
     - name: Install dependencies
       run: |
@@ -25,15 +23,19 @@ jobs:
           libeigen3-dev \
           python3-dev \
           python3-pip \
-          python3-venv
+          python3-venv \
+          pybind11-dev
 
-    - name: Configure CMake (C++ only)
+    - name: Configure CMake (with Python and tests)
       run: |
         mkdir -p build
         cd build
-        cmake .. -DBUILD_TESTS=ON -DBUILD_PYTHON=OFF
+        cmake .. \
+          -DBUILD_TESTS=ON \
+          -DBUILD_PYTHON=ON \
+          -DPYTHON_EXECUTABLE=$(which python3)
 
-    - name: Build C++ library
+    - name: Build everything (C++ and Python)
       run: |
         cd build
         make -j$(nproc)
@@ -43,27 +45,37 @@ jobs:
         cd build
         ctest --output-on-failure
 
-    - name: Configure CMake (with Python)
-      run: |
-        cd build
-        cmake .. \
-          -DBUILD_TESTS=ON \
-          -DBUILD_PYTHON=ON \
-          -DPYTHON_EXECUTABLE=$(which python3) \
-          -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-
-    - name: Build Python bindings
-      run: |
-        cd build
-        make pyopengv -j$(nproc)
-
-    - name: Test Python module (from build)
+    - name: Test Python module
       run: |
         cd ${{ github.workspace }}
         python3 -m venv .venv
         source .venv/bin/activate
-        pip install numpy
-        PYTHONPATH=build/lib python3 python/tests.py
+        pip install numpy scipy pytest
+        PYTHONPATH=build/lib pytest python/ -v
+
+  test-conda-environment:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest]
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Miniconda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: true
+        python-version: '3.11'
+        environment-file: environment.yml
+        activate-environment: opengv
+
+    - name: Run conda environment test (Windows)
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: |
+        .\scripts\test_conda_env.bat
 
   build-wheel-ubuntu:
     runs-on: ubuntu-22.04
@@ -71,8 +83,6 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      with:
-        submodules: recursive
 
     - name: Install dependencies
       run: |
@@ -83,29 +93,22 @@ jobs:
           libeigen3-dev \
           python3-dev \
           python3-pip \
-          python3-venv
+          python3-venv \
+          pybind11-dev
 
-    - name: Create virtual environment
+    - name: Create virtual environment and build wheel
       run: |
         python3 -m venv .venv
         source .venv/bin/activate
-        pip install --upgrade pip
-        pip install numpy wheel build
-
-    - name: Build wheel
-      run: |
-        source .venv/bin/activate
+        pip install --upgrade pip wheel build
         pip wheel . --no-deps -w dist/
 
-    - name: Install wheel
+    - name: Install and test wheel
       run: |
         source .venv/bin/activate
         pip install dist/pyopengv-*.whl
-
-    - name: Test installed wheel
-      run: |
-        source .venv/bin/activate
-        python3 python/tests.py
+        pip install scipy pytest
+        pytest python/ -v
 
     - name: Upload wheel artifact
       uses: actions/upload-artifact@v4
@@ -122,18 +125,24 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      with:
-        submodules: recursive
 
     - name: Install dependencies
       run: |
-        brew install cmake eigen
+        brew install cmake eigen pybind11
 
-    - name: Configure and build C++
+    - name: Configure CMake (with Python and tests)
       run: |
         mkdir -p build
         cd build
-        cmake .. -DBUILD_TESTS=ON -DBUILD_PYTHON=OFF
+        cmake .. \
+          -DCMAKE_CXX_STANDARD=14 \
+          -DBUILD_TESTS=ON \
+          -DBUILD_PYTHON=ON \
+          -DPYTHON_EXECUTABLE=$(which python3)
+
+    - name: Build everything (C++ and Python)
+      run: |
+        cd build
         make -j$(sysctl -n hw.ncpu)
 
     - name: Run C++ tests
@@ -141,23 +150,199 @@ jobs:
         cd build
         ctest --output-on-failure
 
-    - name: Create virtual environment
+    - name: Test Python module (direct build)
       run: |
+        cd ${{ github.workspace }}
         python3 -m venv .venv
         source .venv/bin/activate
-        pip install --upgrade pip
-        pip install numpy wheel build
+        pip install numpy scipy pytest
+        PYTHONPATH=build/lib pytest python/ -v
 
     - name: Build and test wheel
       run: |
         source .venv/bin/activate
+        pip install --upgrade pip wheel build
         pip wheel . --no-deps -w dist/
         pip install dist/pyopengv-*.whl
-        python3 python/tests.py
+        pytest python/ -v
 
     - name: Upload wheel artifact
       uses: actions/upload-artifact@v4
       with:
         name: wheel-${{ matrix.os }}
+        path: dist/*.whl
+
+  build-and-test-windows-conda:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Miniconda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        auto-update-conda: true
+        python-version: '3.11'
+        environment-file: environment.yml
+        activate-environment: opengv
+
+    - name: Verify conda environment
+      shell: powershell
+      run: |
+        conda activate opengv
+        conda list
+        python --version
+        cmake --version
+
+    - name: Configure CMake (with Python and tests)
+      shell: powershell
+      run: |
+        conda activate opengv
+        $pythonDir = python -c "import sys; print(sys.prefix)"
+        $pythonLibDir = "$pythonDir\libs"
+        Write-Host "Python directory: $pythonDir"
+        Write-Host "Python lib directory: $pythonLibDir"
+        Write-Host "Python lib files:"
+        Get-ChildItem $pythonLibDir
+        mkdir build
+        cd build
+        cmake .. `
+          -DBUILD_TESTS=ON `
+          -DBUILD_PYTHON=ON `
+          -DPYTHON_EXECUTABLE=python `
+          -DPython3_ROOT_DIR="$pythonDir" `
+          -DPython3_FIND_VERSION=3.11 `
+          -DPython3_FIND_VERSION_MAJOR=3 `
+          -DPython3_FIND_VERSION_MINOR=11 `
+          -DCMAKE_CXX_FLAGS="/MP /EHsc" `
+          -A x64
+
+    - name: Build everything (C++ and Python)
+      shell: powershell
+      run: |
+        conda activate opengv
+        cd build
+        cmake --build . --config Release --parallel
+
+    - name: Run C++ tests
+      shell: powershell
+      run: |
+        conda activate opengv
+        cd build
+        ctest -C Release --output-on-failure
+
+    - name: Test Python module (direct build)
+      shell: powershell
+      run: |
+        conda activate opengv
+        $env:PYTHONPATH="$PWD\build\lib\Release"
+        pip install scipy pytest
+        pytest python\ -v
+
+    - name: Build and test wheel
+      shell: powershell
+      run: |
+        conda activate opengv
+        pip install wheel build
+        pip wheel . --no-deps -w dist\
+        pip install dist\pyopengv-*.whl
+        pytest python\ -v
+
+    - name: Upload wheel artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wheel-windows-conda
+        path: dist/*.whl
+
+
+  build-and-test-windows-clang-ninja:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        architecture: 'x64'
+
+    - name: Verify Python development files
+      run: |
+        python -c "import sys; print(f'Python: {sys.executable}')"
+        $pythonRoot = python -c "import sys; print(sys.prefix)"
+        Write-Host "Python root: $pythonRoot"
+        if (Test-Path "$pythonRoot\libs\python311.lib") {
+          Write-Host "✓ python311.lib found"
+        } else {
+          Write-Host "✗ python311.lib NOT found"
+        }
+
+    - name: Install LLVM/Clang
+      run: |
+        choco install llvm ninja -y
+        echo "C:\Program Files\LLVM\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+    - name: Install Eigen and pybind11 (headers-only, via vcpkg)
+      shell: bash
+      run: |
+        if [ ! -d "/c/vcpkg" ]; then
+          git clone https://github.com/Microsoft/vcpkg.git /c/vcpkg
+          /c/vcpkg/bootstrap-vcpkg.bat
+        fi
+        /c/vcpkg/vcpkg install eigen3:x64-windows pybind11:x64-windows
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install numpy pybind11
+
+    - name: Configure CMake with Clang and Ninja
+      shell: bash
+      run: |
+        export CC=clang
+        export CXX=clang++
+        mkdir build
+        cd build
+        cmake .. \
+          -G Ninja \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_TESTS=ON \
+          -DBUILD_PYTHON=ON \
+          -DPYTHON_EXECUTABLE=$(which python) \
+          -DCMAKE_TOOLCHAIN_FILE=/c/vcpkg/scripts/buildsystems/vcpkg.cmake
+
+    - name: Build everything with Ninja (blazing fast!)
+      shell: bash
+      run: |
+        cd build
+        ninja -j$(nproc)
+
+    - name: Run C++ tests
+      shell: bash
+      run: |
+        cd build
+        ctest --output-on-failure
+
+    - name: Test Python module (direct build)
+      shell: bash
+      run: |
+        export PYTHONPATH="$PWD/build/lib"
+        pip install scipy pytest
+        pytest python/ -v
+
+    - name: Build and test wheel
+      run: |
+        pip install wheel build
+        pip wheel . --no-deps --no-build-isolation -w dist\
+        pip install dist\pyopengv-*.whl
+        pytest python\ -v
+
+    - name: Upload wheel artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: wheel-windows-clang-ninja
         path: dist/*.whl
 

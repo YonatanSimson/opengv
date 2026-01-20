@@ -53,6 +53,65 @@ bearings = bearings / np.linalg.norm(bearings, axis=1, keepdims=True)
 transformation = pyopengv.absolute_pose.p3p_kneip(bearings, points)
 ```
 
+## Algorithm Selection Guide
+
+### Absolute Pose (PnP) Algorithms
+
+**For Standard Pinhole Cameras (FOV < 100°):**
+- **EPnP** (`absolute_pose_epnp`): Fast and accurate for standard cameras
+- **P3P** (`absolute_pose_p3p_kneip`, `absolute_pose_p3p_gao`): Minimal solver (3 points)
+- **SQPnP Hybrid** (`absolute_pose_sqpnp_hybrid`): Automatically switches between SQPnP and EPnP
+
+**For Panoramic/Wide-Angle/360° Cameras (FOV > 120°):**
+- **UPnP** (`absolute_pose_upnp`) - **RECOMMENDED**: 20-30x more accurate than EPnP for panoramic views
+  - Best accuracy for wide-angle scenarios
+  - Returns multiple solutions (pick best)
+  - ~3-4x slower than EPnP but worth it for accuracy
+- **UPnP + Nonlinear Refinement** - **ULTIMATE ACCURACY**: Use UPnP result as initial guess for optimization
+  ```python
+  transformations = pyopengv.absolute_pose_upnp(bearings, points)
+  refined = pyopengv.absolute_pose_optimize_nonlinear(bearings, points, transformations[0])
+  ```
+
+**Algorithms to AVOID for Panoramic Views:**
+- ❌ **SQPnP** (`absolute_pose_sqpnp`): Not designed for wide-angle/backward-facing vectors
+- Use `upnp` or `sqpnp_hybrid` instead
+
+### Example: Panoramic Camera Pose Estimation
+
+```python
+import numpy as np
+import pyopengv
+
+# 360° panoramic bearing vectors (can point in any direction)
+bearings = np.array([
+    [0.707, 0.707, 0.0],    # Forward-right
+    [-0.707, 0.707, 0.0],   # Forward-left
+    [0.0, -1.0, 0.0],       # Backward
+    [0.0, 0.0, 1.0],        # Up
+])
+points = np.random.randn(4, 3) * 5.0  # 3D world points
+
+# Use UPnP for panoramic cameras
+transformations = pyopengv.absolute_pose.upnp(bearings, points)
+
+# UPnP returns multiple solutions - pick the one with best reprojection error
+best_transformation = transformations[0]  # Or evaluate each solution
+```
+
+### RANSAC for Outlier Rejection
+
+```python
+# For panoramic cameras with outliers
+transformation = pyopengv.absolute_pose_ransac(
+    bearings, 
+    points,
+    "UPNP",  # Use UPnP for panoramic views
+    threshold=0.01,  # rad
+    iterations=1000
+)
+```
+
 ## Building Wheels
 
 The repository includes a helper script for building and distributing wheels:

@@ -60,6 +60,10 @@ public:
       const double y,
       const double z);
 
+  // Control hybrid mode: when true, compares SQPnP with EPnP and picks best
+  void set_hybrid_mode(bool enable) { use_hybrid_mode = enable; }
+  bool get_hybrid_mode() const { return use_hybrid_mode; }
+
   double compute_pose(double R[3][3], double T[3]);
 
   void relative_error(
@@ -164,20 +168,15 @@ private:
       const Eigen::Matrix3d & M_in,
       Eigen::Matrix3d & R_out);
 
-  // Sign handling for omnidirectional cameras
-  void solve_for_sign(void);
-
   double uc, vc, fu, fv;
-  int * signs;  // Added for omnidirectional support
 
   double * pws, * us, * alphas, * pcs;
-  // us stores normalized bearing vectors: [x0, y0, z0, x1, y1, z1, ...]
-  // Changed from 2 components (u, v) to 3 components (x, y, z) per correspondence
   int maximum_number_of_correspondences;
   int number_of_correspondences;
 
   double cws[4][3], ccs[4][3];
-  double cws_determinant;
+  
+  bool use_hybrid_mode;  // When true, runs both SQPnP and EPnP, picks best
   
   static constexpr double EPSILON_ZERO_NORM = 1e-10;
 };

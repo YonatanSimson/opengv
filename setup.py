@@ -64,8 +64,6 @@ class CMakeBuild(build_ext):
             f"-DPYTHON_EXECUTABLE={sys.executable}",
             "-DBUILD_TESTS=OFF",
             "-DBUILD_PYTHON=ON",
-            # Workaround for old pybind11 submodule CMake version requirement
-            "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
         ]
 
         # Build type
@@ -115,12 +113,15 @@ def main():
     
     # Read version from file if available
     version = "1.0.0"
-    
+
     # Read long description from README
-    readme_file = Path(__file__).parent / "README.txt"
+    readme_file = Path(__file__).parent / "README.md"
     long_description = ""
     if readme_file.exists():
         long_description = readme_file.read_text(encoding="utf-8")
+        long_description_content_type = "text/markdown"
+    else:
+        long_description_content_type = "text/plain"
     
     setup(
         name="pyopengv",
@@ -129,7 +130,7 @@ def main():
         author_email="kneip.laurent@gmail.com",
         description="Python bindings for OpenGV - geometric vision library",
         long_description=long_description,
-        long_description_content_type="text/plain",
+        long_description_content_type=long_description_content_type,
         ext_modules=[CMakeExtension("pyopengv")],
         cmdclass={"build_ext": CMakeBuild},
         zip_safe=False,
