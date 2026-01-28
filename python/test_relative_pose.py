@@ -1,9 +1,16 @@
 """
 Tests for relative pose estimation (camera-to-camera pose).
 """
+
 import numpy as np
+from test_utils import (
+    generateRandomPoint,
+    generateRandomRotation,
+    generateRandomTranslation,
+    normalized,
+)
+
 import pyopengv
-from test_utils import normalized, generateRandomPoint, generateRandomTranslation, generateRandomRotation
 
 
 def test_relative_pose():

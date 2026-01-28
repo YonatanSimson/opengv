@@ -21,23 +21,25 @@ Expected Results:
 - Kneip/Gao should be faster (C++ vs Python)
 """
 
-import numpy as np
-import time
 import sys
-from typing import List, Tuple, Optional
+import time
 from dataclasses import dataclass
+from typing import List, Optional, Tuple
+
+import numpy as np
 
 # Import OpenGV
-sys.path.insert(0, 'c:/Users/user/work/opengv/build_bash/lib')
-import pyopengv
-
+sys.path.insert(0, "c:/Users/user/work/opengv/build_bash/lib")
 # Import Lambda Twist
-from lambda_twist_p3p import lambda_twist_p3p, P3PSolution
+from lambda_twist_p3p import P3PSolution, lambda_twist_p3p
+
+import pyopengv
 
 
 @dataclass
 class BenchmarkResult:
     """Holds benchmark results for a single test"""
+
     solver_name: str
     n_solutions: int
     best_pos_error: float
@@ -58,7 +60,9 @@ def compute_rotation_error(R1: np.ndarray, R2: np.ndarray) -> float:
     return np.arccos((trace - 1.0) / 2.0)
 
 
-def generate_test_case(scenario: str, noise_level: float = 0.0) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def generate_test_case(
+    scenario: str, noise_level: float = 0.0
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Generate test case for P3P benchmark.
 
@@ -70,16 +74,18 @@ def generate_test_case(scenario: str, noise_level: float = 0.0) -> Tuple[np.ndar
         (bearing_vectors, points_3d, gt_rotation, gt_position)
     """
     # Ground truth pose
-    if scenario == 'random':
+    if scenario == "random":
         # Random rotation
         q = np.random.randn(4)
         q = q / np.linalg.norm(q)
         w, x, y, z = q
-        gt_rotation = np.array([
-            [1 - 2*y*y - 2*z*z, 2*x*y - 2*z*w, 2*x*z + 2*y*w],
-            [2*x*y + 2*z*w, 1 - 2*x*x - 2*z*z, 2*y*z - 2*x*w],
-            [2*x*z - 2*y*w, 2*y*z + 2*x*w, 1 - 2*x*x - 2*y*y]
-        ])
+        gt_rotation = np.array(
+            [
+                [1 - 2 * y * y - 2 * z * z, 2 * x * y - 2 * z * w, 2 * x * z + 2 * y * w],
+                [2 * x * y + 2 * z * w, 1 - 2 * x * x - 2 * z * z, 2 * y * z - 2 * x * w],
+                [2 * x * z - 2 * y * w, 2 * y * z + 2 * x * w, 1 - 2 * x * x - 2 * y * y],
+            ]
+        )
         gt_position = np.random.randn(3) * 2
         points_3d = np.random.randn(3, 3) * 3
     else:
@@ -87,36 +93,29 @@ def generate_test_case(scenario: str, noise_level: float = 0.0) -> Tuple[np.ndar
         gt_rotation = np.eye(3)
         gt_position = np.array([1.0, 0.5, 0.3])
 
-        if scenario == 'forward':
+        if scenario == "forward":
             # All points in front (z > 0 in camera frame)
-            points_3d = np.array([
-                [2.0, 1.0, 5.0],
-                [3.0, -1.0, 4.0],
-                [1.5, 1.5, 6.0]
-            ])
-        elif scenario == 'mixed':
+            points_3d = np.array([[2.0, 1.0, 5.0], [3.0, -1.0, 4.0], [1.5, 1.5, 6.0]])
+        elif scenario == "mixed":
             # Mixed: 2 forward, 1 backward
-            points_3d = np.array([
-                [2.0, 1.0, 5.0],    # Forward
-                [3.0, -1.0, 4.0],   # Forward
-                [1.5, 0.0, -3.0]    # Backward
-            ])
-        elif scenario == 'backward':
+            points_3d = np.array(
+                [
+                    [2.0, 1.0, 5.0],  # Forward
+                    [3.0, -1.0, 4.0],  # Forward
+                    [1.5, 0.0, -3.0],  # Backward
+                ]
+            )
+        elif scenario == "backward":
             # All points behind (z < 0 in camera frame)
-            points_3d = np.array([
-                [2.0, 1.0, -4.0],
-                [3.0, -1.0, -5.0],
-                [1.5, 1.5, -3.5]
-            ])
+            points_3d = np.array([[2.0, 1.0, -4.0], [3.0, -1.0, -5.0], [1.5, 1.5, -3.5]])
         else:
             raise ValueError(f"Unknown scenario: {scenario}")
 
     # Compute bearing vectors in camera frame
     # Transform points from world to camera frame: p_cam = R^T * (p_world - t)
-    bearing_vectors = np.array([
-        normalized(gt_rotation.T @ (points_3d[i] - gt_position))
-        for i in range(len(points_3d))
-    ])
+    bearing_vectors = np.array(
+        [normalized(gt_rotation.T @ (points_3d[i] - gt_position)) for i in range(len(points_3d))]
+    )
 
     # Add noise if specified
     if noise_level > 0:
@@ -127,8 +126,12 @@ def generate_test_case(scenario: str, noise_level: float = 0.0) -> Tuple[np.ndar
     return bearing_vectors, points_3d, gt_rotation, gt_position
 
 
-def benchmark_kneip(bearing_vectors: np.ndarray, points_3d: np.ndarray,
-                    gt_rotation: np.ndarray, gt_position: np.ndarray) -> BenchmarkResult:
+def benchmark_kneip(
+    bearing_vectors: np.ndarray,
+    points_3d: np.ndarray,
+    gt_rotation: np.ndarray,
+    gt_position: np.ndarray,
+) -> BenchmarkResult:
     """Benchmark P3P Kneip solver."""
     start_time = time.perf_counter()
 
@@ -137,11 +140,11 @@ def benchmark_kneip(bearing_vectors: np.ndarray, points_3d: np.ndarray,
         time_ms = (time.perf_counter() - start_time) * 1000.0
 
         if len(solutions) == 0:
-            return BenchmarkResult("P3P Kneip", 0, float('inf'), float('inf'), time_ms, False)
+            return BenchmarkResult("P3P Kneip", 0, float("inf"), float("inf"), time_ms, False)
 
         # Find best solution
-        best_pos_err = float('inf')
-        best_rot_err = float('inf')
+        best_pos_err = float("inf")
+        best_rot_err = float("inf")
 
         for T in solutions:
             pos = T[:, 3]
@@ -154,15 +157,21 @@ def benchmark_kneip(bearing_vectors: np.ndarray, points_3d: np.ndarray,
                 best_rot_err = rot_err
 
         success = (best_pos_err < 1e-4) and (best_rot_err < 1e-4)
-        return BenchmarkResult("P3P Kneip", len(solutions), best_pos_err, best_rot_err, time_ms, success)
+        return BenchmarkResult(
+            "P3P Kneip", len(solutions), best_pos_err, best_rot_err, time_ms, success
+        )
 
     except Exception as e:
         time_ms = (time.perf_counter() - start_time) * 1000.0
-        return BenchmarkResult("P3P Kneip", 0, float('inf'), float('inf'), time_ms, False)
+        return BenchmarkResult("P3P Kneip", 0, float("inf"), float("inf"), time_ms, False)
 
 
-def benchmark_gao(bearing_vectors: np.ndarray, points_3d: np.ndarray,
-                  gt_rotation: np.ndarray, gt_position: np.ndarray) -> BenchmarkResult:
+def benchmark_gao(
+    bearing_vectors: np.ndarray,
+    points_3d: np.ndarray,
+    gt_rotation: np.ndarray,
+    gt_position: np.ndarray,
+) -> BenchmarkResult:
     """Benchmark P3P Gao solver."""
     start_time = time.perf_counter()
 
@@ -171,11 +180,11 @@ def benchmark_gao(bearing_vectors: np.ndarray, points_3d: np.ndarray,
         time_ms = (time.perf_counter() - start_time) * 1000.0
 
         if len(solutions) == 0:
-            return BenchmarkResult("P3P Gao", 0, float('inf'), float('inf'), time_ms, False)
+            return BenchmarkResult("P3P Gao", 0, float("inf"), float("inf"), time_ms, False)
 
         # Find best solution
-        best_pos_err = float('inf')
-        best_rot_err = float('inf')
+        best_pos_err = float("inf")
+        best_rot_err = float("inf")
 
         for T in solutions:
             pos = T[:, 3]
@@ -188,15 +197,21 @@ def benchmark_gao(bearing_vectors: np.ndarray, points_3d: np.ndarray,
                 best_rot_err = rot_err
 
         success = (best_pos_err < 1e-4) and (best_rot_err < 1e-4)
-        return BenchmarkResult("P3P Gao", len(solutions), best_pos_err, best_rot_err, time_ms, success)
+        return BenchmarkResult(
+            "P3P Gao", len(solutions), best_pos_err, best_rot_err, time_ms, success
+        )
 
     except Exception as e:
         time_ms = (time.perf_counter() - start_time) * 1000.0
-        return BenchmarkResult("P3P Gao", 0, float('inf'), float('inf'), time_ms, False)
+        return BenchmarkResult("P3P Gao", 0, float("inf"), float("inf"), time_ms, False)
 
 
-def benchmark_lambda_twist(bearing_vectors: np.ndarray, points_3d: np.ndarray,
-                           gt_rotation: np.ndarray, gt_position: np.ndarray) -> BenchmarkResult:
+def benchmark_lambda_twist(
+    bearing_vectors: np.ndarray,
+    points_3d: np.ndarray,
+    gt_rotation: np.ndarray,
+    gt_position: np.ndarray,
+) -> BenchmarkResult:
     """Benchmark Lambda Twist P3P solver."""
     start_time = time.perf_counter()
 
@@ -205,11 +220,11 @@ def benchmark_lambda_twist(bearing_vectors: np.ndarray, points_3d: np.ndarray,
         time_ms = (time.perf_counter() - start_time) * 1000.0
 
         if len(solutions) == 0:
-            return BenchmarkResult("Lambda Twist", 0, float('inf'), float('inf'), time_ms, False)
+            return BenchmarkResult("Lambda Twist", 0, float("inf"), float("inf"), time_ms, False)
 
         # Find best solution
-        best_pos_err = float('inf')
-        best_rot_err = float('inf')
+        best_pos_err = float("inf")
+        best_rot_err = float("inf")
 
         for sol in solutions:
             # Convert Lambda Twist convention to OpenGV convention
@@ -227,21 +242,25 @@ def benchmark_lambda_twist(bearing_vectors: np.ndarray, points_3d: np.ndarray,
                 best_rot_err = rot_err
 
         success = (best_pos_err < 1e-4) and (best_rot_err < 1e-4)
-        return BenchmarkResult("Lambda Twist", len(solutions), best_pos_err, best_rot_err, time_ms, success)
+        return BenchmarkResult(
+            "Lambda Twist", len(solutions), best_pos_err, best_rot_err, time_ms, success
+        )
 
     except Exception as e:
         time_ms = (time.perf_counter() - start_time) * 1000.0
-        return BenchmarkResult("Lambda Twist", 0, float('inf'), float('inf'), time_ms, False)
+        return BenchmarkResult("Lambda Twist", 0, float("inf"), float("inf"), time_ms, False)
 
 
 def print_result(result: BenchmarkResult):
     """Print benchmark result."""
     status = "[SUCCESS]" if result.success else "[FAIL]   "
-    print(f"  {status} {result.solver_name:15s} | "
-          f"pos_err={result.best_pos_error:.2e} | "
-          f"rot_err={result.best_rot_error:.2e} | "
-          f"time={result.time_ms:6.3f}ms | "
-          f"n_sol={result.n_solutions}")
+    print(
+        f"  {status} {result.solver_name:15s} | "
+        f"pos_err={result.best_pos_error:.2e} | "
+        f"rot_err={result.best_rot_error:.2e} | "
+        f"time={result.time_ms:6.3f}ms | "
+        f"n_sol={result.n_solutions}"
+    )
 
 
 def run_scenario_benchmark(scenario: str, n_runs: int = 100):
@@ -250,11 +269,7 @@ def run_scenario_benchmark(scenario: str, n_runs: int = 100):
     print(f"Scenario: {scenario.upper()}")
     print(f"{'='*90}")
 
-    results = {
-        "Kneip": [],
-        "Gao": [],
-        "Lambda Twist": []
-    }
+    results = {"Kneip": [], "Gao": [], "Lambda Twist": []}
 
     for run in range(n_runs):
         bearing_vectors, points_3d, gt_rotation, gt_position = generate_test_case(scenario)
@@ -263,9 +278,13 @@ def run_scenario_benchmark(scenario: str, n_runs: int = 100):
         if np.linalg.norm(np.cross(points_3d[1] - points_3d[0], points_3d[2] - points_3d[0])) < 0.1:
             continue
 
-        results["Kneip"].append(benchmark_kneip(bearing_vectors, points_3d, gt_rotation, gt_position))
+        results["Kneip"].append(
+            benchmark_kneip(bearing_vectors, points_3d, gt_rotation, gt_position)
+        )
         results["Gao"].append(benchmark_gao(bearing_vectors, points_3d, gt_rotation, gt_position))
-        results["Lambda Twist"].append(benchmark_lambda_twist(bearing_vectors, points_3d, gt_rotation, gt_position))
+        results["Lambda Twist"].append(
+            benchmark_lambda_twist(bearing_vectors, points_3d, gt_rotation, gt_position)
+        )
 
     # Print summary statistics
     print(f"\nResults (averaged over {len(results['Kneip'])} valid runs):")
@@ -298,22 +317,28 @@ def run_noise_sensitivity_benchmark():
     noise_levels = [0, 1e-6, 1e-5, 1e-4, 1e-3, 5e-3]
     n_runs = 50
 
-    print(f"\n{'Noise Level':<12} | {'Solver':<15} | {'Success Rate':<13} | {'Avg Pos Err':<12} | {'Avg Time':<10}")
+    print(
+        f"\n{'Noise Level':<12} | {'Solver':<15} | {'Success Rate':<13} | {'Avg Pos Err':<12} | {'Avg Time':<10}"
+    )
     print("-" * 90)
 
     for noise in noise_levels:
-        results = {
-            "Kneip": [],
-            "Gao": [],
-            "Lambda Twist": []
-        }
+        results = {"Kneip": [], "Gao": [], "Lambda Twist": []}
 
         for run in range(n_runs):
-            bearing_vectors, points_3d, gt_rotation, gt_position = generate_test_case('forward', noise)
+            bearing_vectors, points_3d, gt_rotation, gt_position = generate_test_case(
+                "forward", noise
+            )
 
-            results["Kneip"].append(benchmark_kneip(bearing_vectors, points_3d, gt_rotation, gt_position))
-            results["Gao"].append(benchmark_gao(bearing_vectors, points_3d, gt_rotation, gt_position))
-            results["Lambda Twist"].append(benchmark_lambda_twist(bearing_vectors, points_3d, gt_rotation, gt_position))
+            results["Kneip"].append(
+                benchmark_kneip(bearing_vectors, points_3d, gt_rotation, gt_position)
+            )
+            results["Gao"].append(
+                benchmark_gao(bearing_vectors, points_3d, gt_rotation, gt_position)
+            )
+            results["Lambda Twist"].append(
+                benchmark_lambda_twist(bearing_vectors, points_3d, gt_rotation, gt_position)
+            )
 
         for solver_name in ["Kneip", "Gao", "Lambda Twist"]:
             solver_results = results[solver_name]
@@ -323,10 +348,14 @@ def run_noise_sensitivity_benchmark():
             if successful:
                 avg_pos_err = np.mean([r.best_pos_error for r in successful])
                 avg_time = np.mean([r.time_ms for r in solver_results])
-                print(f"{noise:<12.0e} | {solver_name:<15} | {success_rate:12.1f}% | {avg_pos_err:<12.2e} | {avg_time:<10.3f} ms")
+                print(
+                    f"{noise:<12.0e} | {solver_name:<15} | {success_rate:12.1f}% | {avg_pos_err:<12.2e} | {avg_time:<10.3f} ms"
+                )
             else:
                 avg_time = np.mean([r.time_ms for r in solver_results])
-                print(f"{noise:<12.0e} | {solver_name:<15} | {success_rate:12.1f}% | {'N/A':<12} | {avg_time:<10.3f} ms")
+                print(
+                    f"{noise:<12.0e} | {solver_name:<15} | {success_rate:12.1f}% | {'N/A':<12} | {avg_time:<10.3f} ms"
+                )
 
 
 def run_single_test_comparison():
@@ -335,7 +364,7 @@ def run_single_test_comparison():
     print("Single Test Detailed Comparison (Mixed Forward/Backward)")
     print(f"{'='*90}")
 
-    bearing_vectors, points_3d, gt_rotation, gt_position = generate_test_case('mixed')
+    bearing_vectors, points_3d, gt_rotation, gt_position = generate_test_case("mixed")
 
     print(f"\nGround Truth:")
     print(f"  Position: {gt_position}")
@@ -374,9 +403,9 @@ def run_single_test_comparison():
 
 def main():
     """Run all benchmarks."""
-    print("="*90)
+    print("=" * 90)
     print("P3P Minimal Solvers Benchmark")
-    print("="*90)
+    print("=" * 90)
     print("\nComparing:")
     print("  1. P3P Kneip (OpenGV C++)")
     print("  2. P3P Gao (OpenGV C++)")
@@ -388,10 +417,10 @@ def main():
     run_single_test_comparison()
 
     # Scenario benchmarks
-    run_scenario_benchmark('forward', n_runs=100)
-    run_scenario_benchmark('mixed', n_runs=100)
-    run_scenario_benchmark('backward', n_runs=100)
-    run_scenario_benchmark('random', n_runs=100)
+    run_scenario_benchmark("forward", n_runs=100)
+    run_scenario_benchmark("mixed", n_runs=100)
+    run_scenario_benchmark("backward", n_runs=100)
+    run_scenario_benchmark("random", n_runs=100)
 
     # Noise sensitivity
     run_noise_sensitivity_benchmark()

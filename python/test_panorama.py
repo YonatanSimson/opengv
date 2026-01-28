@@ -4,10 +4,13 @@ Tests for panoramic 360° algorithm comparison.
 This test validates UPnP, EPnP, and SQPnP performance on full sphere panoramic views
 with varied depth ranges (near, medium, far) including backward-facing vectors.
 """
+
 import time
+
 import numpy as np
+from test_utils import generateRandomTranslation, normalized
+
 import pyopengv
-from test_utils import normalized, generateRandomTranslation
 
 
 def test_panorama_360():
@@ -193,14 +196,17 @@ def test_panorama_360():
     ), f"UPnP rotation error {np.mean(upnp_rotation_errors):.6e} too large (expected ~1e-16)"
     print("  [PASS] UPnP: Perfect accuracy (< 1e-6)")
 
-    # EPnP should be good but not perfect (~1e-11 level typically, but can be 1e-5 on some architectures)
+    # EPnP should be good but not perfect (~1e-11 level typically, but can be 1e-5 on
+    # some architectures)
     # Relax threshold to 1e-4 to account for numerical precision variations across platforms
-    assert (
-        np.mean(epnp_position_errors) < 1e-4
-    ), f"EPnP position error {np.mean(epnp_position_errors):.6e} too large (expected ~1e-5 to 1e-11)"
-    assert (
-        np.mean(epnp_rotation_errors) < 1e-5
-    ), f"EPnP rotation error {np.mean(epnp_rotation_errors):.6e} too large (expected ~1e-6 to 1e-12)"
+    assert np.mean(epnp_position_errors) < 1e-4, (
+        f"EPnP position error {np.mean(epnp_position_errors):.6e} too large "
+        "  (expected ~1e-5 to 1e-11)"
+    )
+    assert np.mean(epnp_rotation_errors) < 1e-5, (
+        f"EPnP rotation error {np.mean(epnp_rotation_errors):.6e} too large "
+        "(expected ~1e-6 to 1e-12)"
+    )
     print("  [PASS] EPnP: Good accuracy (< 1e-4 m, < 1e-5 rad)")
 
     # SQPnP typically fails on panoramic views (errors > 0.01m even without noise)
@@ -208,9 +214,7 @@ def test_panorama_360():
         print(
             f"  [EXPECTED] SQPnP: Poor accuracy on panoramic ({np.mean(sqpnp_position_errors):.2f}m)"
         )
-        print(
-            "             Note: SQPnP not designed for 360° views with backward vectors"
-        )
+        print("             Note: SQPnP not designed for 360° views with backward vectors")
 
     # Calculate relative performance
     if np.mean(epnp_position_errors) > 0:
