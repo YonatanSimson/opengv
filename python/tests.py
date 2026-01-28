@@ -1,4 +1,5 @@
 import numpy as np
+
 import pyopengv
 
 
@@ -762,8 +763,7 @@ def test_upnp_ransac_with_outliers():
     )
 
     assert gao_t_err < OUTLIER_POS_THRESHOLD, (
-        f"GAO+RANSAC position error {gao_t_err:.6f} "
-        f"exceeds threshold {OUTLIER_POS_THRESHOLD}"
+        f"GAO+RANSAC position error {gao_t_err:.6f} " f"exceeds threshold {OUTLIER_POS_THRESHOLD}"
     )
     assert gao_r_err < OUTLIER_ROT_THRESHOLD, (
         f"GAO+RANSAC rotation error {gao_r_err:.6f} rad "
@@ -961,14 +961,17 @@ def test_panorama_360():
     ), f"UPnP rotation error {np.mean(upnp_rotation_errors):.6e} too large (expected ~1e-16)"
     print("  [PASS] UPnP: Perfect accuracy (< 1e-6)")
 
-    # EPnP should be good but not perfect (~1e-11 level typically, but can be 1e-5 on some architectures)
+    # EPnP should be good but not perfect (~1e-11 level typically,
+    # but can be 1e-5 on some architectures)
     # Relax threshold to 1e-4 to account for numerical precision variations across platforms
-    assert (
-        np.mean(epnp_position_errors) < 1e-4
-    ), f"EPnP position error {np.mean(epnp_position_errors):.6e} too large (expected ~1e-5 to 1e-11)"
-    assert (
-        np.mean(epnp_rotation_errors) < 1e-5
-    ), f"EPnP rotation error {np.mean(epnp_rotation_errors):.6e} too large (expected ~1e-6 to 1e-12)"
+    assert np.mean(epnp_position_errors) < 1e-4, (
+        f"EPnP position error {np.mean(epnp_position_errors):.6e} too large "
+        f"(expected ~1e-5 to 1e-11)"
+    )
+    assert np.mean(epnp_rotation_errors) < 1e-5, (
+        f"EPnP rotation error {np.mean(epnp_rotation_errors):.6e} too large "
+        f"(expected ~1e-6 to 1e-12)"
+    )
     print("  [PASS] EPnP: Good accuracy (< 1e-4 m, < 1e-5 rad)")
 
     # SQPnP typically fails on panoramic views (errors > 0.01m even without noise)
@@ -1104,9 +1107,7 @@ def test_upnp_with_nonlinear_optimization_DISABLED():
 
     accuracy_gain = epnp_t_err / refined_t_err
     time_cost = total_time / epnp_time
-    print(
-        f"  vs EPnP: {accuracy_gain:.1f}x more accurate, {time_cost:.1f}x slower"
-    )
+    print(f"  vs EPnP: {accuracy_gain:.1f}x more accurate, {time_cost:.1f}x slower")
 
     # Verify refinement never makes solution worse (we keep initial if optimization degrades)
     assert refined_t_err <= upnp_t_err, (
@@ -1195,9 +1196,7 @@ def test_ransac_comprehensive():
     d_forward = AbsolutePoseDataset(
         100, pixel_error_std_forward / focal_length_forward, 0.3
     )  # 30% outliers
-    threshold_forward = calculate_ransac_threshold(
-        pixel_error_std_forward, focal_length_forward
-    )
+    threshold_forward = calculate_ransac_threshold(pixel_error_std_forward, focal_length_forward)
 
     print("\nDataset: 100 points, 30% outliers")
     print(f"Camera: focal={focal_length_forward}px, pixel_noise={pixel_error_std_forward}px")
@@ -1252,9 +1251,7 @@ def test_ransac_comprehensive():
     d_panorama = AbsolutePoseDataset(
         100, pixel_error_std_panorama / focal_length_panorama, 0.3
     )  # 30% outliers
-    threshold_panorama = calculate_ransac_threshold(
-        pixel_error_std_panorama, focal_length_panorama
-    )
+    threshold_panorama = calculate_ransac_threshold(pixel_error_std_panorama, focal_length_panorama)
 
     print("\nDataset: 100 points, 30% outliers")
     print(f"Camera: focal={focal_length_panorama}px, pixel_noise={pixel_error_std_panorama}px")

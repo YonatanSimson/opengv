@@ -12,4 +12,6 @@ dependencies:
   - wheel
   - setuptools
   - build
+  - ninja  # Build system (faster than make)
+  - clangxx  # Clang C++ compiler
   - compilers  # C++ compiler toolchain (gcc/clang on Unix, MSVC on Windows)

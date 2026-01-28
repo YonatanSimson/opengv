@@ -1,9 +1,16 @@
 """
 Tests for triangulation (3D point reconstruction from multiple views).
 """
+
 import numpy as np
+from test_utils import (
+    generateRandomPoint,
+    generateRandomRotation,
+    generateRandomTranslation,
+    normalized,
+)
+
 import pyopengv
-from test_utils import normalized, generateRandomPoint, generateRandomTranslation, generateRandomRotation
 
 
 def test_triangulation():
@@ -37,15 +44,16 @@ def test_triangulation():
     )
 
     # Verify shape
-    assert triangulated.shape == (num_points, 3), \
-        f"Expected ({num_points}, 3), got {triangulated.shape}"
+    assert triangulated.shape == (
+        num_points,
+        3,
+    ), f"Expected ({num_points}, 3), got {triangulated.shape}"
 
     # Verify triangulation accuracy
     errors = np.linalg.norm(triangulated - points, axis=1)
     mean_error = np.mean(errors)
 
-    assert mean_error < 1e-6, \
-        f"Triangulation error {mean_error:.2e} exceeds threshold 1e-6"
+    assert mean_error < 1e-6, f"Triangulation error {mean_error:.2e} exceeds threshold 1e-6"
 
     print(f"  Mean triangulation error: {mean_error:.2e}")
     print("Done testing triangulation")

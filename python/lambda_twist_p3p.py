@@ -10,14 +10,16 @@ for any calibrated camera model including:
 - Equirectangular (spherical) cameras
 """
 
-import numpy as np
-from typing import List, Tuple, Optional
 from dataclasses import dataclass
+from typing import List, Optional, Tuple
+
+import numpy as np
 
 
 @dataclass
 class P3PSolution:
     """Holds a single P3P solution"""
+
     R: np.ndarray  # 3x3 rotation matrix
     t: np.ndarray  # 3x1 translation vector
     lambdas: np.ndarray  # depths λ1, λ2, λ3
@@ -130,7 +132,7 @@ def eig3x3_known_zero(M: np.ndarray) -> Tuple[np.ndarray, float, float]:
 
     # Trace and sum of 2x2 minors
     p1 = -(m1 + m5 + m9)
-    p0 = m1*m5 + m1*m9 + m5*m9 - m2*m4 - m3*m7 - m6*m8
+    p0 = m1 * m5 + m1 * m9 + m5 * m9 - m2 * m4 - m3 * m7 - m6 * m8
 
     # Solve quadratic
     disc = p1 * p1 - 4 * p0
@@ -183,9 +185,16 @@ def eig3x3_known_zero(M: np.ndarray) -> Tuple[np.ndarray, float, float]:
     return E, sigma1, sigma2
 
 
-def refine_lambdas(lambdas: np.ndarray, M12: np.ndarray, M13: np.ndarray,
-                   M23: np.ndarray, a12: float, a13: float, a23: float,
-                   max_iters: int = 2) -> np.ndarray:
+def refine_lambdas(
+    lambdas: np.ndarray,
+    M12: np.ndarray,
+    M13: np.ndarray,
+    M23: np.ndarray,
+    a12: float,
+    a13: float,
+    a23: float,
+    max_iters: int = 2,
+) -> np.ndarray:
     """
     Gauss-Newton refinement of lambda values.
 
@@ -219,8 +228,7 @@ def refine_lambdas(lambdas: np.ndarray, M12: np.ndarray, M13: np.ndarray,
     return L
 
 
-def lambda_twist_p3p(y: np.ndarray, x: np.ndarray,
-                      refine: bool = True) -> List[P3PSolution]:
+def lambda_twist_p3p(y: np.ndarray, x: np.ndarray, refine: bool = True) -> List[P3PSolution]:
     """
     Lambda Twist P3P Solver
 
@@ -248,9 +256,9 @@ def lambda_twist_p3p(y: np.ndarray, x: np.ndarray,
         y_norm[i] = y[i] / norm
 
     # Compute a_ij (squared distances between 3D points)
-    a12 = np.sum((x[0] - x[1])**2)
-    a13 = np.sum((x[0] - x[2])**2)
-    a23 = np.sum((x[1] - x[2])**2)
+    a12 = np.sum((x[0] - x[1]) ** 2)
+    a13 = np.sum((x[0] - x[2]) ** 2)
+    a23 = np.sum((x[1] - x[2]) ** 2)
 
     # Check for collinear 3D points
     if a12 < 1e-10 or a13 < 1e-10 or a23 < 1e-10:
@@ -262,23 +270,11 @@ def lambda_twist_p3p(y: np.ndarray, x: np.ndarray,
     b23 = np.dot(y_norm[1], y_norm[2])
 
     # Construct M matrices (Eq. 4)
-    M12 = np.array([
-        [1, -b12, 0],
-        [-b12, 1, 0],
-        [0, 0, 0]
-    ], dtype=np.float64)
+    M12 = np.array([[1, -b12, 0], [-b12, 1, 0], [0, 0, 0]], dtype=np.float64)
 
-    M13 = np.array([
-        [1, 0, -b13],
-        [0, 0, 0],
-        [-b13, 0, 1]
-    ], dtype=np.float64)
+    M13 = np.array([[1, 0, -b13], [0, 0, 0], [-b13, 0, 1]], dtype=np.float64)
 
-    M23 = np.array([
-        [0, 0, 0],
-        [0, 1, -b23],
-        [0, -b23, 1]
-    ], dtype=np.float64)
+    M23 = np.array([[0, 0, 0], [0, 1, -b23], [0, -b23, 1]], dtype=np.float64)
 
     # Construct D1 and D2 (Eq. 5-6)
     D1 = M12 * a23 - M23 * a12
@@ -372,8 +368,7 @@ def lambda_twist_p3p(y: np.ndarray, x: np.ndarray,
             if disc < 0:
                 continue
             sqrt_disc = np.sqrt(disc)
-            taus = [(-b_coef + sqrt_disc) / (2 * a_coef),
-                    (-b_coef - sqrt_disc) / (2 * a_coef)]
+            taus = [(-b_coef + sqrt_disc) / (2 * a_coef), (-b_coef - sqrt_disc) / (2 * a_coef)]
 
         for tau in taus:
             if tau <= 0:  # τ must be positive (geometric feasibility)

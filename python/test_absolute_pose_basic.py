@@ -1,9 +1,16 @@
 """
 Basic tests for absolute pose estimation (camera pose from 3D-2D correspondences).
 """
+
 import numpy as np
+from test_utils import (
+    generateRandomPoint,
+    generateRandomRotation,
+    generateRandomTranslation,
+    normalized,
+)
+
 import pyopengv
-from test_utils import normalized, generateRandomPoint, generateRandomTranslation, generateRandomRotation
 
 
 def test_absolute_pose():
@@ -20,12 +27,9 @@ def test_absolute_pose():
     )
 
     # Test P3P Kneip
-    result_kneip = pyopengv.absolute_pose_p3p_kneip(
-        bearing_vectors[:3], points[:3]
-    )
+    result_kneip = pyopengv.absolute_pose_p3p_kneip(bearing_vectors[:3], points[:3])
     assert len(result_kneip) > 0, "P3P Kneip returned no solutions"
-    assert result_kneip[0].shape == (3, 4), \
-        f"Expected (3,4), got {result_kneip[0].shape}"
+    assert result_kneip[0].shape == (3, 4), f"Expected (3,4), got {result_kneip[0].shape}"
 
     # Test P3P Gao
     result_gao = pyopengv.absolute_pose_p3p_gao(bearing_vectors[:3], points[:3])
@@ -38,8 +42,7 @@ def test_absolute_pose():
     # Test UPnP
     result_upnp = pyopengv.absolute_pose_upnp(bearing_vectors, points)
     assert len(result_upnp) > 0, "UPnP returned no solutions"
-    assert result_upnp[0].shape == (3, 4), \
-        f"Expected (3,4), got {result_upnp[0].shape}"
+    assert result_upnp[0].shape == (3, 4), f"Expected (3,4), got {result_upnp[0].shape}"
 
     # Test SQPnP
     result_sqpnp = pyopengv.absolute_pose_sqpnp(bearing_vectors, points)
@@ -62,16 +65,12 @@ def test_absolute_pose_ransac():
     )
 
     # Test RANSAC with KNEIP
-    result_kneip = pyopengv.absolute_pose_ransac(
-        bearing_vectors, points, "KNEIP", 0.01, 1000
-    )
+    result_kneip = pyopengv.absolute_pose_ransac(bearing_vectors, points, "KNEIP", 0.01, 1000)
     assert result_kneip.shape == (3, 4), f"Expected (3,4), got {result_kneip.shape}"
     print("  RANSAC KNEIP: OK")
 
     # Test RANSAC with EPNP
-    result_epnp = pyopengv.absolute_pose_ransac(
-        bearing_vectors, points, "EPNP", 0.01, 1000
-    )
+    result_epnp = pyopengv.absolute_pose_ransac(bearing_vectors, points, "EPNP", 0.01, 1000)
     assert result_epnp.shape == (3, 4), f"Expected (3,4), got {result_epnp.shape}"
     print("  RANSAC EPNP: OK")
 

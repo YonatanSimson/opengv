@@ -6,11 +6,12 @@ This runs all modular test files in sequence.
 """
 import sys
 
+import test_absolute_pose_basic
+import test_panorama
+
 # Import all test modules
 import test_relative_pose
 import test_triangulation
-import test_absolute_pose_basic
-import test_panorama
 
 
 def run_all_tests():

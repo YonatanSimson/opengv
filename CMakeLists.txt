@@ -39,6 +39,8 @@ IF(MSVC)
   add_compile_options(/wd4514 /wd4267 /bigobj)
   # Disable Eigen half-precision float to avoid MSVC ostream operator conflict
   add_definitions(-DEIGEN_HAS_HALF_FLOAT=0)
+  # Increase stack size for large Groebner matrix allocations in fivept_kneip and sixpt algorithms
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:8388608")
 ELSE()
   # Check if we're using Clang on Windows (more conservative flags needed)
   IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND WIN32)
