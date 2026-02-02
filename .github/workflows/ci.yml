@@ -171,91 +171,7 @@ jobs:
       with:
         name: wheel-${{ matrix.os }}
         path: dist/*.whl
-
-  build-and-test-windows-conda:
-    runs-on: windows-latest
-    
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-
-    - name: Setup Miniconda
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        auto-update-conda: true
-        python-version: '3.11'
-        environment-file: environment.yml
-        activate-environment: opengv
-
-    - name: Verify conda environment
-      shell: powershell
-      run: |
-        conda activate opengv
-        conda list
-        python --version
-        cmake --version
-
-    - name: Configure CMake (with Python and tests)
-      shell: powershell
-      run: |
-        conda activate opengv
-        $pythonDir = python -c "import sys; print(sys.prefix)"
-        $pythonLibDir = "$pythonDir\libs"
-        Write-Host "Python directory: $pythonDir"
-        Write-Host "Python lib directory: $pythonLibDir"
-        Write-Host "Python lib files:"
-        Get-ChildItem $pythonLibDir
-        mkdir build
-        cd build
-        cmake .. `
-          -DBUILD_TESTS=ON `
-          -DBUILD_PYTHON=ON `
-          -DPYTHON_EXECUTABLE=python `
-          -DPython3_ROOT_DIR="$pythonDir" `
-          -DPython3_FIND_VERSION=3.11 `
-          -DPython3_FIND_VERSION_MAJOR=3 `
-          -DPython3_FIND_VERSION_MINOR=11 `
-          -DCMAKE_CXX_FLAGS="/MP /EHsc" `
-          -A x64
-
-    - name: Build everything (C++ and Python)
-      shell: powershell
-      run: |
-        conda activate opengv
-        cd build
-        cmake --build . --config Release --parallel
-
-    - name: Run C++ tests
-      shell: powershell
-      run: |
-        conda activate opengv
-        cd build
-        ctest -C Release --output-on-failure
-
-    - name: Test Python module (direct build)
-      shell: powershell
-      run: |
-        conda activate opengv
-        $env:PYTHONPATH="$PWD\build\lib\Release"
-        pip install scipy pytest
-        pytest python\ -v
-
-    - name: Build and test wheel
-      shell: powershell
-      run: |
-        conda activate opengv
-        pip install wheel build
-        pip wheel . --no-deps -w dist\
-        pip install dist\pyopengv-*.whl
-        pytest python\ -v
-
-    - name: Upload wheel artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: wheel-windows-conda
-        path: dist/*.whl
-
-
+  
   build-and-test-windows-clang-ninja:
     runs-on: windows-latest
 
@@ -334,10 +250,12 @@ jobs:
         pytest python/ -v
 
     - name: Build and test wheel
+      shell: powershell
       run: |
         pip install wheel build
         pip wheel . --no-deps --no-build-isolation -w dist\
-        pip install dist\pyopengv-*.whl
+        $wheel = Get-ChildItem -Path dist\pyopengv-*.whl | Select-Object -First 1
+        pip install $wheel.FullName
         pytest python\ -v
 
     - name: Upload wheel artifact

@@ -30,7 +30,7 @@ Install the required dependencies using Homebrew:
 brew install cmake eigen pybind11
 
 # For Python bindings, install Python packages
-pip3 install numpy
+pip3 install numpy scipy
 ```
 
 **Alternative: Using Conda** (optional, not required):
@@ -52,13 +52,13 @@ Install the required dependencies using your package manager:
 ```bash
 # Ubuntu/Debian
 sudo apt-get update
-sudo apt-get install -y cmake libeigen3-dev python3-dev python3-pip pybind11-dev
+sudo apt-get install -y cmake build-essential libeigen3-dev python3-dev python3-pip python3-venv pybind11-dev
 
 # Fedora/RHEL
 sudo dnf install cmake eigen3-devel python3-devel python3-pip pybind11-devel
 
 # For Python bindings
-pip3 install numpy
+pip3 install numpy scipy
 ```
 
 **Alternative: Using Conda** (optional, not required):
@@ -143,8 +143,10 @@ For significantly faster build times on Windows, use Clang and Ninja in Git Bash
 # Install LLVM (includes Clang) and Ninja via Chocolatey
 choco install llvm ninja
 
-# Or via Conda
-conda install -c conda-forge ninja clangxx
+# Install vcpkg for Eigen and pybind11
+git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
+C:\vcpkg\bootstrap-vcpkg.bat
+C:\vcpkg\vcpkg install eigen3:x64-windows pybind11:x64-windows
 ```
 
 **Build:**
@@ -154,7 +156,8 @@ cmake .. -G Ninja \
   -DCMAKE_CXX_COMPILER=clang++ \
   -DCMAKE_BUILD_TYPE=Release \
   -DBUILD_TESTS=ON \
-  -DBUILD_PYTHON=ON
+  -DBUILD_PYTHON=ON \
+  -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
 
 # Build with 8 parallel jobs
 ninja -j 8
@@ -210,7 +213,7 @@ The easiest way to install the Python bindings:
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install numpy
+pip install numpy scipy
 pip install .
 ```
 
@@ -219,7 +222,7 @@ pip install .
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
-pip install numpy
+pip install numpy scipy
 pip install .
 ```
 
@@ -239,7 +242,8 @@ pip install dist/pyopengv-*.whl
 cd build
 ./bin/test_absolute_pose
 python3 -c "import pyopengv; print('pyopengv installed successfully!')"
-PYTHONPATH=build/lib python3 python/tests.py
+pip install pytest
+PYTHONPATH=build/lib pytest python/ -v
 ```
 
 #### Windows (PowerShell)
@@ -248,7 +252,8 @@ PYTHONPATH=build/lib python3 python/tests.py
 cd build
 .\bin\Release\test_absolute_pose.exe
 python -c "import pyopengv; print('pyopengv installed successfully!')"
-$env:PYTHONPATH="$PWD\lib\Release"; python ..\python\tests.py
+pip install pytest
+$env:PYTHONPATH="$PWD\lib\Release"; pytest ..\python\ -v
 ```
 
 ## Quick Start (Python)

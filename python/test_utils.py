@@ -1,6 +1,7 @@
 """
 Utility functions for OpenGV Python tests.
 """
+
 import numpy as np
 
 
